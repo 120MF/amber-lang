@@ -1,0 +1,15 @@
+[package]
+name = "amber_parser"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+pest.workspace = true
+pest_derive.workspace = true
+miette.workspace = true
+
+amber_ast.workspace = true

@@ -1,0 +1,17 @@
+[package]
+name = "amber_cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+clap.workspace = true
+miette.workspace = true
+anyhow.workspace = true
+
+amber_parser.workspace = true
+amber_analysis.workspace = true
+amber_vm.workspace = true
+amber_codegen.workspace = true

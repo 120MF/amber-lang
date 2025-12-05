@@ -1,0 +1,39 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["WeaveFeather <moonbite233@gmail.com>"]
+license = "ICS"
+repository = "https://github.com/120MF/amber"
+
+[workspace.dependencies]
+amber_ast = { path = "crates/amber_ast" }
+amber_parser = { path = "crates/amber_parser" }
+amber_analysis = { path = "crates/amber_analysis" }
+amber_vm = { path = "crates/amber_vm" }
+amber_codegen = { path = "crates/amber_codegen" }
+
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+anyhow = "1"
+miette = { version = "7", features = ["fancy"] }
+
+clap = { version = "4", features = ["derive"] }
+colored = "3"
+
+pest = "2"
+pest_derive = "2"
+
+[profile.dev]
+opt-level = 0
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+codegen-units = 1
