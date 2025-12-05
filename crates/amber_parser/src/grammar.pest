@@ -1,0 +1,33 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY) * }
+
+program = { SOI ~ statement* ~ EOI }
+
+statement = {
+    declaration |
+    assignment |
+    expr_stmt
+}
+
+declaration = {
+    modifier? ~              // comptime/runtime
+    keyword ~                // let/var
+    ident ~                  // variable name
+    (":" ~ type_def)? ~      // optional type def
+    ("=" ~ expr)? ~          // optional init value
+    ";"
+}
+
+modifier = { "comptime" | "runtime" }
+keyword = { "let" | "var" }
+
+assignment = { ident ~ "=" ~ expr ~ ";" }
+expr_stmt = { expr ~ ";" }
+
+//TODO: f32、f64、str
+type_def = { "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "bool" }
+
+expr = { int_lit | ident }
+
+ident =   @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+int_lit = @{ ASCII_DIGIT+ }
