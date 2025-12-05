@@ -1,14 +1,42 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+#[derive(Debug, Clone, PartialEq)]
+pub struct Program {
+    pub statements: Vec<Statement>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Debug, Clone, PartialEq)]
+pub enum Statement {
+    LetBinding {
+        modifier: Option<Modifier>, // comptime / runtime / None
+        is_mutable: bool,           // let = false, var = true
+        name: String,
+        ty: Option<Type>, // type
+        value: Option<Expression>,
+    },
+    ExprStatement(Expression),
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub enum Modifier {
+    Comptime,
+    Runtime,
+    // @section maybe...
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Type {
+    U8,
+    U16,
+    U32,
+    U64,
+    I8,
+    I16,
+    I32,
+    I64,
+    Bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Expression {
+    Integer(i64),
+    Identifier(String),
 }
