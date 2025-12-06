@@ -1,5 +1,6 @@
 use pest::Parser;
 use pest::iterators::Pair;
+use pest::pratt_parser::{PrattParser, Assoc, Op};
 use pest_derive::Parser;
 
 use amber_ast::{Expression, Modifier, Program, Statement, Type};
@@ -107,17 +108,43 @@ fn parse_declaration(pair: Pair<Rule>) -> Statement {
 }
 
 fn parse_expr(pair: Pair<Rule>) -> Expression {
-    // expr = { int_lit | ident }
-    let inner = pair.into_inner().next().unwrap();
 
-    match inner.as_rule() {
-        Rule::int_lit => {
-            let val: i64 = inner.as_str().parse().unwrap();
-            Expression::Integer(val)
-        }
-        Rule::ident => Expression::Identifier(inner.as_str().to_string()),
-        _ => panic!("Unknown expression: {:?}", inner.as_rule()),
-    }
+    let pairs = pair.into_inner();
+    expr_parser()
+      .map_primary(|primary|{
+            match primary.as_rule(){
+                Rule::int_lit =>{
+                    let val: i64 = primary.as_str().parse().unwrap();
+                    Expression::Integer(val)
+                }
+                Rule::ident => {
+                    Expression::Identifier(primary.as_str().to_string())
+                }
+                Rule::expr => {
+                    parse_expr(primary)
+                }
+                _ => panic!("Unknown atom: {:?}", primary.as_rule()),
+            }
+        })
+      .map_infix(|lhs, op, rhs| {
+            let binary_op = match op.as_rule(){
+                Rule::add => amber_ast::BinaryOp::Add,
+                Rule::sub => amber_ast::BinaryOp::Sub,
+                Rule::mul => amber_ast::BinaryOp::Mul,
+                Rule::div => amber_ast::BinaryOp::Div,
+                _ => panic!("Unexpected operator: {:?}", op.as_rule()),
+            };
+            Expression::BinaryExpr { left: Box::new(lhs), op: binary_op, right: Box::new(rhs) }
+            
+        })
+            .parse(pairs)
+
+}
+
+fn expr_parser() -> PrattParser<Rule> {
+    PrattParser::new()
+        .op(Op::infix(Rule::add, Assoc::Left) | Op::infix(Rule::sub, Assoc::Left))
+        .op(Op::infix(Rule::mul, Assoc::Left) | Op::infix(Rule::div, Assoc::Left))
 }
 
 #[cfg(test)]
@@ -136,8 +163,8 @@ mod tests {
         let code = "runtime var counter: u8 = 0;";
         let result = parse_source(code);
         assert!(result.is_ok());
-    }
 
+    }
     #[test]
     fn test_fail_syntax() {
         // miss ";"
@@ -174,4 +201,50 @@ mod tests {
             panic!("Expected LetBinding");
         }
     }
+    #[test]
+fn test_expression_precedence() {
+    // 测试 1 + 2 * 3
+    // 应该被解析为 1 + (2 * 3)，而不是 (1 + 2) * 3
+    let code = "let a = 1 + 2 * 3;";
+    let program = build_ast(code).unwrap();
+
+    if let Statement::LetBinding { value: Some(expr), .. } = &program.statements[0] {
+        // 期望最外层是 Add
+        if let Expression::BinaryExpr { left, op, right } = expr {
+            assert_eq!(*op, amber_ast::BinaryOp::Add);
+            
+            // 左边应该是 1
+            if let Expression::Integer(v) = **left {
+                assert_eq!(v, 1);
+            } else { panic!("Left should be 1"); }
+
+            // 右边应该是一个 Mul 表达式 (2 * 3)
+            if let Expression::BinaryExpr { left: r_left, op: r_op, right: r_right } = &**right {
+                assert_eq!(*r_op, amber_ast::BinaryOp::Mul);
+                // 检查 2 和 3...
+            } else {
+                panic!("Right side should be multiplication");
+            }
+        } else {
+            panic!("Top level should be addition");
+        }
+    }
+}
+
+#[test]
+fn test_parenthesis() {
+    // 测试 (1 + 2) * 3
+    // 括号应该改变优先级
+    let code = "let a = (1 + 2) * 3;";
+    let program = build_ast(code).unwrap();
+
+    if let Statement::LetBinding { value: Some(expr), .. } = &program.statements[0] {
+        // 期望最外层是 Mul
+        if let Expression::BinaryExpr { op, .. } = expr {
+            assert_eq!(*op, amber_ast::BinaryOp::Mul);
+        } else {
+            panic!("Top level should be multiplication");
+        }
+    }
+}
 }

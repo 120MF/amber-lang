@@ -36,7 +36,20 @@ pub enum Type {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum BinaryOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Integer(i64),
     Identifier(String),
+    BinaryExpr {
+        left: Box<Expression>,
+        op: BinaryOp,
+        right: Box<Expression>,
+    },
 }

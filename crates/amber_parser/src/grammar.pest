@@ -27,7 +27,15 @@ expr_stmt = { expr ~ ";" }
 //TODO: f32、f64、str
 type_def = { "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "bool" }
 
-expr = { int_lit | ident }
+atom = { int_lit | ident | "(" ~ expr ~ ")" }
+
+bin_op = _{ add | sub | mul | div}
+  add = {"+"}
+  sub = {"-"}
+  mul = {"*"}
+  div = {"/"}
+
+expr = { atom ~ (bin_op ~ atom)* }
 
 ident =   @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 int_lit = @{ ASCII_DIGIT+ }
