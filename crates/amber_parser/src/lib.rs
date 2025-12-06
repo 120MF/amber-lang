@@ -1,9 +1,12 @@
 use pest::Parser;
 use pest::iterators::Pair;
-use pest::pratt_parser::{PrattParser, Assoc, Op};
+use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_derive::Parser;
 
-use amber_ast::{Expression, Modifier, Program, Statement, Type};
+use amber_ast::{
+    Expression, Function, ImplBlock, Modifier, Param, Program, Statement, StructDef, StructField,
+    Type,
+};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
@@ -48,6 +51,9 @@ fn parse_statement(pair: Pair<Rule>) -> Statement {
             let expr_pair = inner.into_inner().next().unwrap();
             Statement::ExprStatement(parse_expr(expr_pair))
         }
+        Rule::struct_def => Statement::Struct(parse_struct(inner)),
+        Rule::function_def => Statement::Function(parse_function(inner)),
+        Rule::impl_block => Statement::Impl(parse_impl(inner)),
         _ => panic!("TODO: Implement other statements: {:?}", inner.as_rule()),
     }
 }
@@ -79,18 +85,7 @@ fn parse_declaration(pair: Pair<Rule>) -> Statement {
                 name = part.as_str().to_string();
             }
             Rule::type_def => {
-                ty = match part.as_str() {
-                    "u8" => Some(Type::U8),
-                    "u16" => Some(Type::U16),
-                    "u32" => Some(Type::U32),
-                    "u64" => Some(Type::U64),
-                    "i8" => Some(Type::I8),
-                    "i16" => Some(Type::I16),
-                    "i32" => Some(Type::I32),
-                    "i64" => Some(Type::I64),
-                    "bool" => Some(Type::Bool),
-                    _ => panic!("Unkown type"),
-                };
+                ty = Some(parse_type(part));
             }
             Rule::expr => {
                 value = Some(parse_expr(part));
@@ -108,43 +103,175 @@ fn parse_declaration(pair: Pair<Rule>) -> Statement {
 }
 
 fn parse_expr(pair: Pair<Rule>) -> Expression {
-
     let pairs = pair.into_inner();
     expr_parser()
-      .map_primary(|primary|{
-            match primary.as_rule(){
-                Rule::int_lit =>{
-                    let val: i64 = primary.as_str().parse().unwrap();
-                    Expression::Integer(val)
-                }
-                Rule::ident => {
-                    Expression::Identifier(primary.as_str().to_string())
-                }
-                Rule::expr => {
-                    parse_expr(primary)
-                }
-                _ => panic!("Unknown atom: {:?}", primary.as_rule()),
-            }
-        })
-      .map_infix(|lhs, op, rhs| {
-            let binary_op = match op.as_rule(){
+        .map_primary(|primary| parse_primary(primary))
+        .map_infix(|lhs, op, rhs| {
+            let binary_op = match op.as_rule() {
                 Rule::add => amber_ast::BinaryOp::Add,
                 Rule::sub => amber_ast::BinaryOp::Sub,
                 Rule::mul => amber_ast::BinaryOp::Mul,
                 Rule::div => amber_ast::BinaryOp::Div,
                 _ => panic!("Unexpected operator: {:?}", op.as_rule()),
             };
-            Expression::BinaryExpr { left: Box::new(lhs), op: binary_op, right: Box::new(rhs) }
-            
+            Expression::BinaryExpr {
+                left: Box::new(lhs),
+                op: binary_op,
+                right: Box::new(rhs),
+            }
         })
-            .parse(pairs)
+        .parse(pairs)
+}
 
+fn parse_primary(primary: Pair<Rule>) -> Expression {
+    match primary.as_rule() {
+        Rule::atom => {
+            let mut inner = primary.into_inner();
+            let inner = inner.next().expect("atom must contain value");
+            parse_primary(inner)
+        }
+        Rule::int_lit => {
+            let val: i64 = primary.as_str().parse().unwrap();
+            Expression::Integer(val)
+        }
+        Rule::ident => Expression::Identifier(primary.as_str().to_string()),
+        Rule::expr => parse_expr(primary),
+        _ => panic!("Unknown primary: {:?}", primary.as_rule()),
+    }
 }
 
 fn expr_parser() -> PrattParser<Rule> {
     PrattParser::new()
         .op(Op::infix(Rule::add, Assoc::Left) | Op::infix(Rule::sub, Assoc::Left))
         .op(Op::infix(Rule::mul, Assoc::Left) | Op::infix(Rule::div, Assoc::Left))
+}
+
+fn parse_struct(pair: Pair<Rule>) -> StructDef {
+    let mut inner = pair.into_inner();
+    let name = inner
+        .next()
+        .expect("struct must have a name")
+        .as_str()
+        .to_string();
+
+    let mut fields = Vec::new();
+    for part in inner {
+        if part.as_rule() == Rule::struct_fields {
+            fields = part.into_inner().map(parse_struct_field).collect();
+        }
+    }
+
+    StructDef { name, fields }
+}
+
+fn parse_struct_field(pair: Pair<Rule>) -> StructField {
+    let mut inner = pair.into_inner();
+    let name = inner
+        .next()
+        .expect("struct field needs name")
+        .as_str()
+        .to_string();
+    let ty_pair = inner.next().expect("struct field needs type");
+
+    StructField {
+        name,
+        ty: parse_type(ty_pair),
+    }
+}
+
+fn parse_function(pair: Pair<Rule>) -> Function {
+    let mut name = String::new();
+    let mut params = Vec::new();
+    let mut return_type = None;
+    let mut body = None;
+    let mut is_extern = false;
+
+    for part in pair.into_inner() {
+        match part.as_rule() {
+            Rule::extern_modifier => is_extern = true,
+            Rule::ident => name = part.as_str().to_string(),
+            Rule::parameter_list => {
+                params = part.into_inner().map(parse_param).collect();
+            }
+            Rule::return_type => {
+                let mut inner = part.into_inner();
+                let ty_pair = inner.next().expect("return type must contain a type");
+                return_type = Some(parse_type(ty_pair));
+            }
+            Rule::function_body => {
+                if let Some(block_pair) = part.into_inner().next() {
+                    if block_pair.as_rule() == Rule::block {
+                        body = Some(block_pair.as_str().to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Function {
+        name,
+        params,
+        return_type,
+        body,
+        is_extern,
+    }
+}
+
+fn parse_param(pair: Pair<Rule>) -> Param {
+    match pair.as_rule() {
+        Rule::param => {
+            let inner = pair.into_inner().next().expect("param must have inner");
+            parse_param(inner)
+        }
+        Rule::param_self => Param::SelfParam,
+        Rule::param_typed => parse_typed_param(pair),
+        _ => panic!("Unexpected parameter {:?}", pair.as_rule()),
+    }
+}
+
+fn parse_typed_param(pair: Pair<Rule>) -> Param {
+    let mut inner = pair.into_inner();
+    let name = inner
+        .next()
+        .expect("param needs a name")
+        .as_str()
+        .to_string();
+    let ty_pair = inner.next().expect("param needs a type");
+    Param::Typed {
+        name,
+        ty: parse_type(ty_pair),
+    }
+}
+
+fn parse_impl(pair: Pair<Rule>) -> ImplBlock {
+    let mut inner = pair.into_inner();
+    let target = inner
+        .next()
+        .expect("impl block needs target")
+        .as_str()
+        .to_string();
+    let methods = inner
+        .filter(|p| p.as_rule() == Rule::function_def)
+        .map(parse_function)
+        .collect();
+
+    ImplBlock { target, methods }
+}
+
+fn parse_type(pair: Pair<Rule>) -> Type {
+    match pair.as_str() {
+        "u8" => Type::U8,
+        "u16" => Type::U16,
+        "u32" => Type::U32,
+        "u64" => Type::U64,
+        "i8" => Type::I8,
+        "i16" => Type::I16,
+        "i32" => Type::I32,
+        "i64" => Type::I64,
+        "bool" => Type::Bool,
+        other => Type::Custom(other.to_string()),
+    }
 }
 
 #[cfg(test)]
@@ -163,7 +290,6 @@ mod tests {
         let code = "runtime var counter: u8 = 0;";
         let result = parse_source(code);
         assert!(result.is_ok());
-
     }
     #[test]
     fn test_fail_syntax() {
@@ -202,49 +328,144 @@ mod tests {
         }
     }
     #[test]
-fn test_expression_precedence() {
-    // 测试 1 + 2 * 3
-    // 应该被解析为 1 + (2 * 3)，而不是 (1 + 2) * 3
-    let code = "let a = 1 + 2 * 3;";
-    let program = build_ast(code).unwrap();
+    fn test_expression_precedence() {
+        let code = "let a = 1 + 2 * 3;";
+        let program = build_ast(code).unwrap();
 
-    if let Statement::LetBinding { value: Some(expr), .. } = &program.statements[0] {
-        // 期望最外层是 Add
-        if let Expression::BinaryExpr { left, op, right } = expr {
-            assert_eq!(*op, amber_ast::BinaryOp::Add);
-            
-            // 左边应该是 1
-            if let Expression::Integer(v) = **left {
-                assert_eq!(v, 1);
-            } else { panic!("Left should be 1"); }
+        if let Statement::LetBinding {
+            value: Some(expr), ..
+        } = &program.statements[0]
+        {
+            // out: Add
+            if let Expression::BinaryExpr { left, op, right } = expr {
+                assert_eq!(*op, amber_ast::BinaryOp::Add);
 
-            // 右边应该是一个 Mul 表达式 (2 * 3)
-            if let Expression::BinaryExpr { left: r_left, op: r_op, right: r_right } = &**right {
-                assert_eq!(*r_op, amber_ast::BinaryOp::Mul);
-                // 检查 2 和 3...
+                // left: 1
+                if let Expression::Integer(v) = **left {
+                    assert_eq!(v, 1);
+                } else {
+                    panic!("Left should be 1");
+                }
+
+                // right: (2 * 3)
+                if let Expression::BinaryExpr {
+                    left: r_left,
+                    op: r_op,
+                    right: r_right,
+                } = &**right
+                {
+                    assert_eq!(*r_op, amber_ast::BinaryOp::Mul);
+                    //2 and 3...
+                } else {
+                    panic!("Right side should be multiplication");
+                }
             } else {
-                panic!("Right side should be multiplication");
+                panic!("Top level should be addition");
             }
-        } else {
-            panic!("Top level should be addition");
         }
     }
-}
 
-#[test]
-fn test_parenthesis() {
-    // 测试 (1 + 2) * 3
-    // 括号应该改变优先级
-    let code = "let a = (1 + 2) * 3;";
-    let program = build_ast(code).unwrap();
+    #[test]
+    fn test_parenthesis() {
+        let code = "let a = (1 + 2) * 3;";
+        let program = build_ast(code).unwrap();
 
-    if let Statement::LetBinding { value: Some(expr), .. } = &program.statements[0] {
-        // 期望最外层是 Mul
-        if let Expression::BinaryExpr { op, .. } = expr {
-            assert_eq!(*op, amber_ast::BinaryOp::Mul);
-        } else {
-            panic!("Top level should be multiplication");
+        if let Statement::LetBinding {
+            value: Some(expr), ..
+        } = &program.statements[0]
+        {
+            if let Expression::BinaryExpr { op, .. } = expr {
+                assert_eq!(*op, amber_ast::BinaryOp::Mul);
+            } else {
+                panic!("Top level should be multiplication");
+            }
         }
     }
-}
+
+    #[test]
+    fn test_struct_definition() {
+        let code = r#"
+            struct Point {
+                x: i32,
+                y: i32,
+            }
+        "#;
+        let program = build_ast(code).unwrap();
+        match &program.statements[0] {
+            Statement::Struct(def) => {
+                assert_eq!(def.name, "Point");
+                assert_eq!(def.fields.len(), 2);
+                assert_eq!(def.fields[0].name, "x");
+                assert_eq!(def.fields[1].name, "y");
+            }
+            _ => panic!("Expected struct definition"),
+        }
+    }
+
+    #[test]
+    fn test_function_definition() {
+        let code = r#"
+            fn add(a: i32, b: i32) -> i32 {
+                return a + b;
+            }
+
+            extern fn HAL_Delay(ms: u32);
+        "#;
+
+        let program = build_ast(code).unwrap();
+        assert_eq!(program.statements.len(), 2);
+
+        match &program.statements[0] {
+            Statement::Function(func) => {
+                assert_eq!(func.name, "add");
+                assert!(!func.is_extern);
+                assert_eq!(func.params.len(), 2);
+                assert_eq!(func.return_type, Some(Type::I32));
+                assert!(func.body.is_some());
+            }
+            _ => panic!("Expected function definition"),
+        }
+
+        match &program.statements[1] {
+            Statement::Function(func) => {
+                assert!(func.is_extern);
+                assert!(func.body.is_none());
+                assert_eq!(func.params.len(), 1);
+            }
+            _ => panic!("Expected extern function definition"),
+        }
+    }
+
+    #[test]
+    fn test_impl_block() {
+        let code = r#"
+            impl Point {
+                fn new(x: i32, y: i32) -> Point {
+                    return Point { x: x, y: y };
+                }
+
+                fn move(self, dx: i32, dy: i32) {
+                    self.x = self.x + dx;
+                    self.y = self.y + dy;
+                }
+            }
+        "#;
+
+        let program = build_ast(code).unwrap();
+        match &program.statements[0] {
+            Statement::Impl(block) => {
+                assert_eq!(block.target, "Point");
+                assert_eq!(block.methods.len(), 2);
+
+                let first = &block.methods[0];
+                assert_eq!(first.name, "new");
+                assert_eq!(first.return_type, Some(Type::Custom("Point".into())));
+
+                let second = &block.methods[1];
+                assert_eq!(second.name, "move");
+                assert!(matches!(second.params.first(), Some(Param::SelfParam)));
+            }
+            _ => panic!("Expected impl block"),
+        }
+    }
 }

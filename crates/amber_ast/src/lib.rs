@@ -13,6 +13,9 @@ pub enum Statement {
         value: Option<Expression>,
     },
     ExprStatement(Expression),
+    Struct(StructDef),
+    Function(Function),
+    Impl(ImplBlock),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,6 +36,7 @@ pub enum Type {
     I32,
     I64,
     Bool,
+    Custom(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -52,4 +56,37 @@ pub enum Expression {
         op: BinaryOp,
         right: Box<Expression>,
     },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StructDef {
+    pub name: String,
+    pub fields: Vec<StructField>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StructField {
+    pub name: String,
+    pub ty: Type,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function {
+    pub name: String,
+    pub params: Vec<Param>,
+    pub return_type: Option<Type>,
+    pub body: Option<String>,
+    pub is_extern: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Param {
+    SelfParam,
+    Typed { name: String, ty: Type },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImplBlock {
+    pub target: String,
+    pub methods: Vec<Function>,
 }
