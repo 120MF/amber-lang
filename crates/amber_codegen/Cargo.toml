@@ -7,3 +7,5 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+amber_ast.workspace = true
+thiserror.workspace = true
