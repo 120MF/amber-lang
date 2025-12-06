@@ -4,6 +4,11 @@ pub struct Program {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Block {
+    pub statements: Vec<Statement>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     LetBinding {
         modifier: Option<Modifier>, // comptime / runtime / None
@@ -16,6 +21,11 @@ pub enum Statement {
     Struct(StructDef),
     Function(Function),
     Impl(ImplBlock),
+    Assignment {
+        target: String,
+        value: Expression,
+    },
+    Return(Option<Expression>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -75,7 +85,7 @@ pub struct Function {
     pub name: String,
     pub params: Vec<Param>,
     pub return_type: Option<Type>,
-    pub body: Option<String>,
+    pub body: Option<Block>,
     pub is_extern: bool,
 }
 

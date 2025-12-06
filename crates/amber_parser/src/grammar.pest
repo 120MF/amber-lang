@@ -26,6 +26,7 @@ keyword = { "let" | "var" }
 
 assignment = { ident ~ "=" ~ expr ~ ";" }
 expr_stmt = { expr ~ ";" }
+return_stmt = { "return" ~ expr? ~ ";" }
 
 //TODO: f32、f64、str
 type_def = { builtin_type | ident }
@@ -57,7 +58,6 @@ param_typed = { ident ~ ":" ~ type_def }
 return_type = { "->" ~ type_def }
 function_body = { block | ";" }
 
-block = { "{" ~ block_content* ~ "}" }
-block_content = { block | (!("{" | "}") ~ ANY)+ }
+block = { "{" ~ (declaration | assignment | expr_stmt | return_stmt)* ~ "}" }
 
 impl_block = { "impl" ~ ident ~ "{" ~ function_def* ~ "}" }

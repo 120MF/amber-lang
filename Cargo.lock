@@ -32,11 +32,8 @@ dependencies = [
 name = "amber_cli"
 version = "0.1.0"
 dependencies = [
- "amber_analysis",
  "amber_codegen",
  "amber_parser",
- "amber_vm",
- "anyhow",
  "clap",
  "miette",
 ]
@@ -112,12 +109,6 @@ dependencies = [
  "once_cell_polyfill",
  "windows-sys 0.61.2",
 ]
-
-[[package]]
-name = "anyhow"
-version = "1.0.100"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "backtrace"

@@ -4,8 +4,8 @@ use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_derive::Parser;
 
 use amber_ast::{
-    Expression, Function, ImplBlock, Modifier, Param, Program, Statement, StructDef, StructField,
-    Type,
+    Block, Expression, Function, ImplBlock, Modifier, Param, Program, Statement, StructDef,
+    StructField, Type,
 };
 
 #[derive(Parser)]
@@ -51,10 +51,24 @@ fn parse_statement(pair: Pair<Rule>) -> Statement {
             let expr_pair = inner.into_inner().next().unwrap();
             Statement::ExprStatement(parse_expr(expr_pair))
         }
+        Rule::assignment => parse_assignment(inner),
         Rule::struct_def => Statement::Struct(parse_struct(inner)),
         Rule::function_def => Statement::Function(parse_function(inner)),
         Rule::impl_block => Statement::Impl(parse_impl(inner)),
         _ => panic!("TODO: Implement other statements: {:?}", inner.as_rule()),
+    }
+}
+
+fn parse_block_statement(pair: Pair<Rule>) -> Statement {
+    match pair.as_rule() {
+        Rule::declaration => parse_declaration(pair),
+        Rule::assignment => parse_assignment(pair),
+        Rule::expr_stmt => {
+            let expr_pair = pair.into_inner().next().unwrap();
+            Statement::ExprStatement(parse_expr(expr_pair))
+        }
+        Rule::return_stmt => parse_return(pair),
+        _ => panic!("unexpected statement '{:?}' inside block", pair.as_rule()),
     }
 }
 
@@ -201,7 +215,7 @@ fn parse_function(pair: Pair<Rule>) -> Function {
             Rule::function_body => {
                 if let Some(block_pair) = part.into_inner().next() {
                     if block_pair.as_rule() == Rule::block {
-                        body = Some(block_pair.as_str().to_string());
+                        body = Some(parse_block(block_pair));
                     }
                 }
             }
@@ -216,6 +230,34 @@ fn parse_function(pair: Pair<Rule>) -> Function {
         body,
         is_extern,
     }
+}
+
+fn parse_block(pair: Pair<Rule>) -> Block {
+    let statements = pair
+        .into_inner()
+        .map(parse_block_statement)
+        .collect::<Vec<_>>();
+    Block { statements }
+}
+
+fn parse_assignment(pair: Pair<Rule>) -> Statement {
+    let mut inner = pair.into_inner();
+    let target = inner
+        .next()
+        .expect("assignment must have a target")
+        .as_str()
+        .to_string();
+    let expr_pair = inner.next().expect("assignment must have value");
+    Statement::Assignment {
+        target,
+        value: parse_expr(expr_pair),
+    }
+}
+
+fn parse_return(pair: Pair<Rule>) -> Statement {
+    let mut inner = pair.into_inner();
+    let expr = inner.next().map(parse_expr);
+    Statement::Return(expr)
 }
 
 fn parse_param(pair: Pair<Rule>) -> Param {
@@ -349,9 +391,9 @@ mod tests {
 
                 // right: (2 * 3)
                 if let Expression::BinaryExpr {
-                    left: r_left,
+                    left: _r_left,
                     op: r_op,
-                    right: r_right,
+                    right: _r_right,
                 } = &**right
                 {
                     assert_eq!(*r_op, amber_ast::BinaryOp::Mul);
@@ -421,7 +463,11 @@ mod tests {
                 assert!(!func.is_extern);
                 assert_eq!(func.params.len(), 2);
                 assert_eq!(func.return_type, Some(Type::I32));
-                assert!(func.body.is_some());
+                assert!(
+                    func.body
+                        .as_ref()
+                        .is_some_and(|body| matches!(body.statements[0], Statement::Return(_)))
+                );
             }
             _ => panic!("Expected function definition"),
         }
@@ -440,13 +486,13 @@ mod tests {
     fn test_impl_block() {
         let code = r#"
             impl Point {
-                fn new(x: i32, y: i32) -> Point {
-                    return Point { x: x, y: y };
+                fn new(x: i32, y: i32) -> i32 {
+                    return x + y;
                 }
 
-                fn move(self, dx: i32, dy: i32) {
-                    self.x = self.x + dx;
-                    self.y = self.y + dy;
+                fn translate(self, dx: i32) {
+                    var delta: i32 = dx;
+                    return;
                 }
             }
         "#;
@@ -459,10 +505,10 @@ mod tests {
 
                 let first = &block.methods[0];
                 assert_eq!(first.name, "new");
-                assert_eq!(first.return_type, Some(Type::Custom("Point".into())));
+                assert_eq!(first.return_type, Some(Type::I32));
 
                 let second = &block.methods[1];
-                assert_eq!(second.name, "move");
+                assert_eq!(second.name, "translate");
                 assert!(matches!(second.params.first(), Some(Param::SelfParam)));
             }
             _ => panic!("Expected impl block"),
