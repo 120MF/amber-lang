@@ -10,6 +10,7 @@ repository.workspace = true
 
 pest.workspace = true
 pest_derive.workspace = true
+lazy_static.workspace = true
 miette.workspace = true
 thiserror.workspace = true
 

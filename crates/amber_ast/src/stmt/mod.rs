@@ -1,7 +1,9 @@
-use crate::Expression;
 mod bindings;
-use crate::decl::{Function, ImplBlock, StructDef};
+mod control;
+
 pub use bindings::LetBinding;
+pub use control::IfElse;
+use crate::{Expression, Function, ImplBlock, StructDef};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Modifier {
@@ -13,6 +15,7 @@ pub enum Modifier {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     LetBinding(LetBinding),
+    IfElse(IfElse),
     ExprStatement(Expression),
     Struct(StructDef),
     Function(Function),

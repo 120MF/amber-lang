@@ -1,6 +1,6 @@
 use pest::iterators::Pair;
 
-use amber_ast::{Block, LetBinding, Modifier, Statement};
+use amber_ast::{Block, IfElse, LetBinding, Modifier, Statement};
 
 use crate::Rule;
 use crate::expr_parser::parse_expr;
@@ -77,6 +77,36 @@ pub fn parse_expr_stmt(pair: Pair<Rule>) -> Statement {
     Statement::ExprStatement(parse_expr(expr_pair))
 }
 
+/// Parse an if-else statement
+pub fn parse_if_stmt(pair: Pair<Rule>) -> Statement {
+    let mut inner = pair.into_inner();
+    
+    let condition = parse_expr(inner.next().expect("if must have condition"));
+    let then_block = parse_block(inner.next().expect("if must have then block"));
+    
+    let else_block = if let Some(else_part) = inner.next() {
+        match else_part.as_rule() {
+            Rule::block => Some(parse_block(else_part)),
+            Rule::if_stmt => {
+                // else if case - wrap in block containing if statement
+                let else_if_stmt = parse_if_stmt(else_part);
+                Some(Block {
+                    statements: vec![else_if_stmt],
+                })
+            }
+            _ => None,
+        }
+    } else {
+        None
+    };
+    
+    Statement::IfElse(IfElse {
+        condition,
+        then_block,
+        else_block,
+    })
+}
+
 /// Parse a block containing statements
 pub fn parse_block(pair: Pair<Rule>) -> Block {
     let statements = pair
@@ -93,6 +123,7 @@ fn parse_block_statement(pair: Pair<Rule>) -> Statement {
         Rule::assignment => parse_assignment(pair),
         Rule::expr_stmt => parse_expr_stmt(pair),
         Rule::return_stmt => parse_return(pair),
+        Rule::if_stmt => parse_if_stmt(pair),
         _ => panic!("unexpected statement '{:?}' inside block", pair.as_rule()),
     }
 }

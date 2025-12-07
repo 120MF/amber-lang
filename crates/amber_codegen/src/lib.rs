@@ -1,6 +1,6 @@
 use amber_ast::{
     BinaryOp, Block, Expression, Function, ImplBlock, Literal, Modifier, NumericLiteral, Param,
-    Program, Statement, StructDef, StructField, Type,
+    Program, Statement, StructDef, StructField, Type, UnaryOp,
 };
 use thiserror::Error;
 
@@ -59,6 +59,9 @@ impl CodeGenerator {
             Statement::Struct(def) => self.emit_struct(def),
             Statement::Function(func) => self.emit_function(func, None),
             Statement::Impl(block) => self.emit_impl(block),
+            Statement::IfElse(_) => {
+                panic!("unexpected statement at top level: if-else should be inside block")
+            }
             Statement::Assignment { .. } | Statement::Return(_) => {
                 panic!("unexpected statement at top level: {:?}", statement)
             }
@@ -289,6 +292,21 @@ impl CodeGenerator {
                     self.render_expr(right)
                 )
             }
+            Expression::UnaryExpr { op, expr } => {
+                format!(
+                    "({}{})",
+                    self.render_unary_op(op),
+                    self.render_expr(expr)
+                )
+            }
+            Expression::TernaryExpr { condition, then_expr, else_expr } => {
+                format!(
+                    "({} ? {} : {})",
+                    self.render_expr(condition),
+                    self.render_expr(then_expr),
+                    self.render_expr(else_expr)
+                )
+            }
         }
     }
 
@@ -307,12 +325,37 @@ impl CodeGenerator {
         }
     }
 
+    fn render_unary_op(&self, op: &UnaryOp) -> &'static str {
+        match op {
+            UnaryOp::Neg => "-",
+            UnaryOp::Pos => "+",
+            UnaryOp::Not => "!",
+            UnaryOp::BitNot => "~",
+            UnaryOp::PreInc => "++",
+            UnaryOp::PreDec => "--",
+        }
+    }
+
     fn render_binary_op(&self, op: &BinaryOp) -> &'static str {
         match op {
             BinaryOp::Add => "+",
             BinaryOp::Sub => "-",
             BinaryOp::Mul => "*",
             BinaryOp::Div => "/",
+            BinaryOp::Mod => "%",
+            BinaryOp::Eq => "==",
+            BinaryOp::Ne => "!=",
+            BinaryOp::Lt => "<",
+            BinaryOp::Le => "<=",
+            BinaryOp::Gt => ">",
+            BinaryOp::Ge => ">=",
+            BinaryOp::BitAnd => "&",
+            BinaryOp::BitOr => "|",
+            BinaryOp::BitXor => "^",
+            BinaryOp::Shl => "<<",
+            BinaryOp::Shr => ">>",
+            BinaryOp::And => "&&",
+            BinaryOp::Or => "||",
         }
     }
 
@@ -368,6 +411,16 @@ impl CodeGenerator {
                 }
                 line.push(';');
                 self.push_indented_line(indent, &line);
+            }
+            Statement::IfElse(if_else) => {
+                let cond_str = self.render_expr(&if_else.condition);
+                self.push_indented_line(indent, &format!("if ({}) {{", cond_str));
+                self.emit_block(&if_else.then_block, indent + 1)?;
+                if let Some(else_block) = &if_else.else_block {
+                    self.push_indented_line(indent, "} else {");
+                    self.emit_block(else_block, indent + 1)?;
+                }
+                self.push_indented_line(indent, "}");
             }
             Statement::Struct(_) | Statement::Function(_) | Statement::Impl(_) => {
                 panic!("unsupported statement inside block: {:?}", statement);

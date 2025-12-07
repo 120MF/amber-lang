@@ -7,6 +7,8 @@ statement = {
     declaration |
     assignment |
     expr_stmt |
+    return_stmt |
+    if_stmt |
     struct_def |
     function_def |
     impl_block
@@ -28,18 +30,72 @@ assignment = { ident ~ "=" ~ expr ~ ";" }
 expr_stmt = { expr ~ ";" }
 return_stmt = { "return" ~ expr? ~ ";" }
 
+// Control Statement
+
+if_stmt = { "if" ~ expr ~ block ~ ("else" ~ ( if_stmt | block ))?}
+
 type_def = { builtin_type | ident }
 builtin_type = { "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64" | "bool" }
 
 atom = { float_lit | int_lit | bool_lit | ident | "(" ~ expr ~ ")" }
 
-bin_op = _{ add | sub | mul | div }
-  add = {"+"}
-  sub = {"-"}
-  mul = {"*"}
-  div = {"/"}
 
-expr = { atom ~ (bin_op ~ atom)* }
+// Operator
+
+// Unary prefix operators
+prefix_minus = { "-" }
+prefix_plus = { "+" }
+prefix_not = { "!" }
+prefix_bitnot = { "~" }
+prefix_preinc = { "++" }
+prefix_predec = { "--" }
+
+// Arithmetic operators
+add_op = { "+" }
+sub_op = { "-" }
+mul_op = { "*" }
+div_op = { "/" }
+mod_op = { "%" }
+
+// Bitwise operators
+bitwise_and = { "&" }
+bitwise_or = { "|" }
+bitwise_xor = { "^" }
+shl_op = { "<<" }
+shr_op = { ">>" }
+
+// Comparison operators
+le_op = { "<=" }
+ge_op = { ">=" }
+eq_op = { "==" }
+ne_op = { "!=" }
+lt_op = { "<" }
+gt_op = { ">" }
+
+// Logical operators
+and_op = { "&&" }
+or_op = { "||" }
+
+prefix_op = _{ prefix_minus | prefix_plus | prefix_not | prefix_bitnot | prefix_preinc | prefix_predec }
+binary_op =  _ { or_op | and_op | le_op | ge_op | eq_op | ne_op | shl_op | shr_op | bitwise_or | bitwise_xor | bitwise_and | lt_op | gt_op | add_op | sub_op | mul_op | div_op | mod_op}
+
+// Ternary operators
+question = { "?" }
+colon = { ":" }
+
+// Top-level expression
+expr = { ternary_expr }
+
+// Ternary expression: math_expr ? expr : expr
+// Right-associative: a ? b : c ? d : e parses as a ? b : (c ? d : e)
+ternary_expr = { math_expr ~ (question ~ expr ~ colon ~ expr)? }
+
+// Math expression: handled by PrattParser for precedence
+math_expr = { unary ~ (binary_op ~ unary)* }
+
+// Unary - prefix operators followed by atom
+unary = { prefix_op* ~ atom }
+
 
 ident =   @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 int_lit = @{ ASCII_DIGIT+ }
@@ -59,6 +115,6 @@ param_typed = { ident ~ ":" ~ type_def }
 return_type = { "->" ~ type_def }
 function_body = { block | ";" }
 
-block = { "{" ~ (declaration | assignment | expr_stmt | return_stmt)* ~ "}" }
+block = { "{" ~ (declaration | assignment | expr_stmt | return_stmt | if_stmt)* ~ "}" }
 
 impl_block = { "impl" ~ ident ~ "{" ~ function_def* ~ "}" }

@@ -25,6 +25,7 @@ colored = "3"
 
 pest = "2"
 pest_derive = "2"
+lazy_static = "1"
 
 [profile.dev]
 opt-level = 0
