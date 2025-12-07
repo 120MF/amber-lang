@@ -1,10 +1,11 @@
+use amber_parser::build_ast_with_name;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use amber_codegen::generate_program;
 use amber_parser::build_ast;
 use clap::Parser;
-use miette::{Context, IntoDiagnostic, Result};
+use miette::{Context, Diagnostic, GraphicalReportHandler, IntoDiagnostic, Result};
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -63,11 +64,34 @@ impl AmberCompiler {
     }
 
     fn compile_source(&self, source: &str, origin: &Path) -> Result<String> {
-        let program = build_ast(source)
-            .map_err(|err| miette::miette!("failed to parse '{}': {}", origin.display(), err))?;
+        let program =
+            build_ast_with_name(source, origin.display().to_string()).into_diagnostic()?;
         generate_program(&program).map_err(|err| {
             miette::miette!("failed to generate C for '{}': {}", origin.display(), err)
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use miette::{Diagnostic, GraphicalReportHandler};
+    use std::path::Path;
+
+    #[test]
+    fn syntax_error_reports_miette_diagnostic() {
+        let compiler = AmberCompiler::default();
+        let err = compiler
+            .compile_source("let a = 1", Path::new("syntax.amb"))
+            .unwrap_err();
+        let mut rendered = String::new();
+        GraphicalReportHandler::new()
+            .render_report(&mut rendered, err.as_ref())
+            .unwrap();
+        println!("OUTPUT:\n{}", rendered);
+        assert!(rendered.contains("parse error"));
+        assert!(rendered.contains("= expected add, sub, mul, or div"));
+        assert!(rendered.contains("syntax.amb"));
     }
 }
 

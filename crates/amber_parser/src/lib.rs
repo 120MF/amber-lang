@@ -32,8 +32,12 @@ pub fn parse_source(input: &str) -> Result<(), ParseError> {
 }
 
 pub fn build_ast(input: &str) -> Result<Program, ParseError> {
+    build_ast_with_name(input, "<input>")
+}
+
+pub fn build_ast_with_name(input: &str, name: impl AsRef<str>) -> Result<Program, ParseError> {
     let mut pairs = AmberParser::parse(Rule::program, input)
-        .map_err(|e| ParseError::from_pest(e, "<input>", input.to_string()))?;
+        .map_err(|e| ParseError::from_pest(e, name, input.to_string()))?;
 
     let root = pairs.next().unwrap();
 

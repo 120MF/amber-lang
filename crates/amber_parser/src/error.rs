@@ -12,10 +12,10 @@ pub enum ParseError {
         #[from]
         source: std::io::Error,
     },
-    #[error("parse error: {source}")]
+    #[error("parse error in {name}: {source}")]
     #[diagnostic(code(amber_parser::parse_error))]
     Pest {
-        #[source]
+        name: String,
         source: PestError<Rule>,
         #[source_code]
         src: NamedSource<String>,
@@ -31,9 +31,11 @@ impl ParseError {
         input: impl Into<String>,
     ) -> Self {
         let span_location = source.location.clone();
+        let name = name.as_ref().to_string();
         ParseError::Pest {
+            name: name.clone(),
             source,
-            src: NamedSource::new(name, input.into()),
+            src: NamedSource::new(name.clone(), input.into()),
             span: location_to_span(span_location),
         }
     }
