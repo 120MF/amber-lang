@@ -1,533 +1,124 @@
-use amber_ast::{
-    BinaryOp, Block, Expression, Function, ImplBlock, Literal, Modifier, NumericLiteral, Param,
-    Program, Statement, StructDef, StructField, Type, UnaryOp,
-};
-use thiserror::Error;
+mod buffer;
+mod declarations;
+mod errors;
+mod expression;
+mod statements;
+mod types;
 
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum CodegenError {
-    #[error("let binding '{name}' requires an explicit type")]
-    MissingType { name: String },
-    #[error("function '{name}' is missing a body")]
-    MissingFunctionBody { name: String },
-    #[error("extern function '{name}' cannot have a body")]
-    ExternFunctionWithBody { name: String },
-    #[error("`self` parameter is only allowed inside impl blocks (function '{name}')")]
-    SelfParamOutsideImpl { name: String },
-    #[error("function '{name}' contains multiple `self` parameters")]
-    MultipleSelfParams { name: String },
-    #[error("impl method '{target}::{name}' cannot be declared extern")]
-    ExternImplMethod { target: String, name: String },
-}
+pub use errors::CodegenError;
 
+use amber_ast::Program;
+use buffer::CodeBuffer;
+
+/// Generate C code from an Amber AST program
 pub fn generate_program(program: &Program) -> Result<String, CodegenError> {
-    let mut generator = CodeGenerator::default();
-    generator.emit_program(program)?;
-    Ok(generator.finish())
-}
-
-#[derive(Default)]
-struct CodeGenerator {
-    buffer: String,
-}
-
-impl CodeGenerator {
-    fn finish(self) -> String {
-        format!(
-            "#include <stdint.h>\n#include <stdbool.h>\n\n{}",
-            self.buffer
-        )
-    }
-
-    fn emit_program(&mut self, program: &Program) -> Result<(), CodegenError> {
-        for statement in &program.statements {
-            self.emit_statement(statement)?;
-        }
-        Ok(())
-    }
-
-    fn emit_statement(&mut self, statement: &Statement) -> Result<(), CodegenError> {
-        match statement {
-            Statement::LetBinding(lb) => self.emit_let_binding(
-                lb.modifier.clone(),
-                lb.is_mutable,
-                &lb.name,
-                lb.ty.as_ref(),
-                lb.value.as_ref(),
-            ),
-            Statement::ExprStatement(expr) => self.emit_expr_statement(expr),
-            Statement::Struct(def) => self.emit_struct(def),
-            Statement::Function(func) => self.emit_function(func, None),
-            Statement::Impl(block) => self.emit_impl(block),
-            Statement::IfElse(_) => {
-                panic!("unexpected statement at top level: if-else should be inside block")
-            }
-            Statement::Assignment { .. } | Statement::Return(_) => {
-                panic!("unexpected statement at top level: {:?}", statement)
-            }
-        }
-    }
-
-    fn render_let_binding_line(
-        &self,
-        modifier: Option<Modifier>,
-        is_mutable: bool,
-        name: &str,
-        ty: Option<&Type>,
-        value: Option<&Expression>,
-    ) -> Result<String, CodegenError> {
-        let ty = ty.ok_or_else(|| CodegenError::MissingType {
-            name: name.to_string(),
-        })?;
-        let qualifier = self.binding_qualifier(modifier, is_mutable);
-        let mut line = format!("{}{} {}", qualifier, self.type_to_c(ty), name);
-        if let Some(expr) = value {
-            line.push_str(" = ");
-            line.push_str(&self.render_expr(expr));
-        }
-        line.push(';');
-        Ok(line)
-    }
-
-    fn emit_let_binding(
-        &mut self,
-        modifier: Option<Modifier>,
-        is_mutable: bool,
-        name: &str,
-        ty: Option<&Type>,
-        value: Option<&Expression>,
-    ) -> Result<(), CodegenError> {
-        let line = self.render_let_binding_line(modifier, is_mutable, name, ty, value)?;
-        self.push_line(&line);
-        self.push_line("");
-        Ok(())
-    }
-
-    fn emit_expr_statement(&mut self, expr: &Expression) -> Result<(), CodegenError> {
-        let line = self.render_expr_statement_line(expr);
-        self.push_line(&line);
-        self.push_line("");
-        Ok(())
-    }
-
-    fn render_expr_statement_line(&self, expr: &Expression) -> String {
-        format!("{};", self.render_expr(expr))
-    }
-
-    fn emit_struct(&mut self, def: &StructDef) -> Result<(), CodegenError> {
-        self.push_line("typedef struct {");
-        for field in &def.fields {
-            self.emit_struct_field(field);
-        }
-        self.push_line(&format!("}} {};", def.name));
-        self.push_line("");
-        Ok(())
-    }
-
-    fn emit_struct_field(&mut self, field: &StructField) {
-        let line = format!("    {} {};", self.type_to_c(&field.ty), field.name);
-        self.push_line(&line);
-    }
-
-    fn emit_function(
-        &mut self,
-        func: &Function,
-        impl_target: Option<&str>,
-    ) -> Result<(), CodegenError> {
-        if func.is_extern {
-            if func.body.is_some() {
-                return Err(CodegenError::ExternFunctionWithBody {
-                    name: func.name.clone(),
-                });
-            }
-            let signature =
-                self.function_signature(&func.name, func.return_type.as_ref(), &func.params, None)?;
-            self.push_line(&format!("extern {};", signature));
-            self.push_line("");
-            return Ok(());
-        }
-
-        let body = func
-            .body
-            .as_ref()
-            .ok_or_else(|| CodegenError::MissingFunctionBody {
-                name: func.name.clone(),
-            })?;
-        let signature = self.function_signature(
-            &func.name,
-            func.return_type.as_ref(),
-            &func.params,
-            impl_target,
-        )?;
-        self.push_line(&format!("{} {{", signature));
-        self.emit_block(body, 1)?;
-        self.push_line("}");
-        self.push_line("");
-        Ok(())
-    }
-
-    fn emit_impl(&mut self, block: &ImplBlock) -> Result<(), CodegenError> {
-        for method in &block.methods {
-            if method.is_extern {
-                return Err(CodegenError::ExternImplMethod {
-                    target: block.target.clone(),
-                    name: method.name.clone(),
-                });
-            }
-            let name = format!("{}_{}", block.target, method.name);
-            let body = method
-                .body
-                .as_ref()
-                .ok_or_else(|| CodegenError::MissingFunctionBody {
-                    name: method.name.clone(),
-                })?;
-            let signature = self.function_signature(
-                &name,
-                method.return_type.as_ref(),
-                &method.params,
-                Some(&block.target),
-            )?;
-            self.push_line(&format!("{} {{", signature));
-            self.emit_block(body, 1)?;
-            self.push_line("}");
-            self.push_line("");
-        }
-        Ok(())
-    }
-
-    fn function_signature(
-        &self,
-        name: &str,
-        return_type: Option<&Type>,
-        params: &[Param],
-        impl_target: Option<&str>,
-    ) -> Result<String, CodegenError> {
-        let ret = self.type_to_c_opt(return_type);
-        let params = self.format_params(params, impl_target, name)?;
-        Ok(format!("{} {}({})", ret, name, params))
-    }
-
-    fn format_params(
-        &self,
-        params: &[Param],
-        impl_target: Option<&str>,
-        func_name: &str,
-    ) -> Result<String, CodegenError> {
-        let mut parts = Vec::new();
-        let mut self_seen = false;
-
-        for param in params {
-            match param {
-                Param::SelfParam => {
-                    let target = impl_target.ok_or_else(|| CodegenError::SelfParamOutsideImpl {
-                        name: func_name.to_string(),
-                    })?;
-                    if self_seen {
-                        return Err(CodegenError::MultipleSelfParams {
-                            name: func_name.to_string(),
-                        });
-                    }
-                    self_seen = true;
-                    parts.push(format!("{}* self", target));
-                }
-                Param::Typed { name, ty } => {
-                    parts.push(format!("{} {}", self.type_to_c(ty), name));
-                }
-            }
-        }
-
-        if parts.is_empty() {
-            Ok("void".to_string())
-        } else {
-            Ok(parts.join(", "))
-        }
-    }
-
-    fn binding_qualifier(&self, modifier: Option<Modifier>, is_mutable: bool) -> String {
-        let mut flags = Vec::new();
-        if matches!(modifier, Some(Modifier::Comptime)) {
-            flags.push("const");
-        }
-        if !is_mutable && !flags.contains(&"const") {
-            flags.push("const");
-        }
-        if flags.is_empty() {
-            String::new()
-        } else {
-            format!("{} ", flags.join(" "))
-        }
-    }
-
-    fn type_to_c(&self, ty: &Type) -> String {
-        match ty {
-            Type::U8 => "uint8_t".into(),
-            Type::U16 => "uint16_t".into(),
-            Type::U32 => "uint32_t".into(),
-            Type::U64 => "uint64_t".into(),
-            Type::I8 => "int8_t".into(),
-            Type::I16 => "int16_t".into(),
-            Type::I32 => "int32_t".into(),
-            Type::I64 => "int64_t".into(),
-            Type::F32 => "float".into(),
-            Type::F64 => "double".into(),
-            Type::Bool => "bool".into(),
-            Type::Custom(name) => name.clone(),
-        }
-    }
-
-    fn type_to_c_opt(&self, ty: Option<&Type>) -> String {
-        ty.map(|t| self.type_to_c(t))
-            .unwrap_or_else(|| "void".into())
-    }
-
-    fn render_expr(&self, expr: &Expression) -> String {
-        match expr {
-            Expression::Literal(lit) => self.render_literal(lit),
-            Expression::Identifier(ident) => ident.clone(),
-            Expression::BinaryExpr { left, op, right } => {
-                format!(
-                    "({} {} {})",
-                    self.render_expr(left),
-                    self.render_binary_op(op),
-                    self.render_expr(right)
-                )
-            }
-            Expression::UnaryExpr { op, expr } => {
-                format!(
-                    "({}{})",
-                    self.render_unary_op(op),
-                    self.render_expr(expr)
-                )
-            }
-            Expression::TernaryExpr { condition, then_expr, else_expr } => {
-                format!(
-                    "({} ? {} : {})",
-                    self.render_expr(condition),
-                    self.render_expr(then_expr),
-                    self.render_expr(else_expr)
-                )
-            }
-        }
-    }
-
-    fn render_literal(&self, lit: &Literal) -> String {
-        match lit {
-            Literal::Numeric(num) => self.render_numeric_literal(num),
-            Literal::Bool(b) => if *b { "true".to_string() } else { "false".to_string() },
-        }
-    }
-
-    fn render_numeric_literal(&self, lit: &NumericLiteral) -> String {
-        match lit {
-            NumericLiteral::Integer(i) => i.to_string(),
-            NumericLiteral::Float(f) => format!("{}f", f),
-            NumericLiteral::Double(d) => d.to_string(),
-        }
-    }
-
-    fn render_unary_op(&self, op: &UnaryOp) -> &'static str {
-        match op {
-            UnaryOp::Neg => "-",
-            UnaryOp::Pos => "+",
-            UnaryOp::Not => "!",
-            UnaryOp::BitNot => "~",
-            UnaryOp::PreInc => "++",
-            UnaryOp::PreDec => "--",
-        }
-    }
-
-    fn render_binary_op(&self, op: &BinaryOp) -> &'static str {
-        match op {
-            BinaryOp::Add => "+",
-            BinaryOp::Sub => "-",
-            BinaryOp::Mul => "*",
-            BinaryOp::Div => "/",
-            BinaryOp::Mod => "%",
-            BinaryOp::Eq => "==",
-            BinaryOp::Ne => "!=",
-            BinaryOp::Lt => "<",
-            BinaryOp::Le => "<=",
-            BinaryOp::Gt => ">",
-            BinaryOp::Ge => ">=",
-            BinaryOp::BitAnd => "&",
-            BinaryOp::BitOr => "|",
-            BinaryOp::BitXor => "^",
-            BinaryOp::Shl => "<<",
-            BinaryOp::Shr => ">>",
-            BinaryOp::And => "&&",
-            BinaryOp::Or => "||",
-        }
-    }
-
-    fn push_line(&mut self, line: &str) {
-        self.buffer.push_str(line);
-        self.buffer.push('\n');
-    }
-
-    fn push_indented_line(&mut self, indent: usize, line: &str) {
-        for _ in 0..indent {
-            self.buffer.push_str("    ");
-        }
-        self.buffer.push_str(line);
-        self.buffer.push('\n');
-    }
-
-    fn emit_block(&mut self, block: &Block, indent: usize) -> Result<(), CodegenError> {
-        for statement in &block.statements {
-            self.emit_block_statement(statement, indent)?;
-        }
-        Ok(())
-    }
-
-    fn emit_block_statement(
-        &mut self,
-        statement: &Statement,
-        indent: usize,
-    ) -> Result<(), CodegenError> {
-        match statement {
-            Statement::LetBinding(lb) => {
-                let line = self.render_let_binding_line(
-                    lb.modifier.clone(),
-                    lb.is_mutable,
-                    &lb.name,
-                    lb.ty.as_ref(),
-                    lb.value.as_ref(),
-                )?;
-                self.push_indented_line(indent, &line);
-            }
-            Statement::ExprStatement(expr) => {
-                let line = self.render_expr_statement_line(expr);
-                self.push_indented_line(indent, &line);
-            }
-            Statement::Assignment { target, value } => {
-                let line = format!("{} = {};", target, self.render_expr(value));
-                self.push_indented_line(indent, &line);
-            }
-            Statement::Return(expr) => {
-                let mut line = String::from("return");
-                if let Some(value) = expr {
-                    line.push(' ');
-                    line.push_str(&self.render_expr(value));
-                }
-                line.push(';');
-                self.push_indented_line(indent, &line);
-            }
-            Statement::IfElse(if_else) => {
-                let cond_str = self.render_expr(&if_else.condition);
-                self.push_indented_line(indent, &format!("if ({}) {{", cond_str));
-                self.emit_block(&if_else.then_block, indent + 1)?;
-                if let Some(else_block) = &if_else.else_block {
-                    self.push_indented_line(indent, "} else {");
-                    self.emit_block(else_block, indent + 1)?;
-                }
-                self.push_indented_line(indent, "}");
-            }
-            Statement::Struct(_) | Statement::Function(_) | Statement::Impl(_) => {
-                panic!("unsupported statement inside block: {:?}", statement);
-            }
-        }
-        Ok(())
-    }
+    let mut buffer = CodeBuffer::default();
+    statements::emit_program(&mut buffer, program)?;
+    Ok(buffer.finish())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use amber_ast::{LetBinding, Literal, NumericLiteral};
+    use amber_ast::{
+        Block, Function, ImplBlock, Literal, Modifier, NumericLiteral, Param, Program,
+        Statement, StructDef, StructField, Type,
+    };
+
+    fn return_block(expr: amber_ast::Expression) -> Block {
+        Block {
+            statements: vec![Statement::Return(Some(expr))],
+        }
+    }
 
     #[test]
     fn generates_structs_functions_and_impls() {
-        fn return_block(expr: Expression) -> Block {
-            Block {
-                statements: vec![Statement::Return(Some(expr))],
-            }
-        }
-
         let program = Program {
             statements: vec![
                 Statement::Struct(StructDef {
-                    name: "Point".into(),
+                    name: "Point".to_string(),
                     fields: vec![
                         StructField {
-                            name: "x".into(),
+                            name: "x".to_string(),
                             ty: Type::I32,
                         },
                         StructField {
-                            name: "y".into(),
+                            name: "y".to_string(),
                             ty: Type::I32,
                         },
                     ],
                 }),
-                Statement::Function(amber_ast::Function {
-                    name: "add".into(),
+                Statement::Function(Function {
+                    name: "add".to_string(),
                     params: vec![
                         Param::Typed {
-                            name: "a".into(),
+                            name: "a".to_string(),
                             ty: Type::I32,
                         },
                         Param::Typed {
-                            name: "b".into(),
+                            name: "b".to_string(),
                             ty: Type::I32,
                         },
                     ],
                     return_type: Some(Type::I32),
-                    body: Some(return_block(Expression::BinaryExpr {
-                        left: Box::new(Expression::Identifier("a".into())),
-                        op: BinaryOp::Add,
-                        right: Box::new(Expression::Identifier("b".into())),
-                    })),
                     is_extern: false,
+                    body: Some(return_block(amber_ast::Expression::BinaryExpr {
+                        left: Box::new(amber_ast::Expression::Identifier("a".to_string())),
+                        op: amber_ast::BinaryOp::Add,
+                        right: Box::new(amber_ast::Expression::Identifier("b".to_string())),
+                    })),
                 }),
-                Statement::Function(amber_ast::Function {
-                    name: "HAL_Delay".into(),
+                Statement::Function(Function {
+                    name: "HAL_Delay".to_string(),
                     params: vec![Param::Typed {
-                        name: "ms".into(),
+                        name: "ms".to_string(),
                         ty: Type::U32,
                     }],
                     return_type: None,
-                    body: None,
                     is_extern: true,
+                    body: None,
                 }),
                 Statement::Impl(ImplBlock {
-                    target: "Point".into(),
+                    target: "Point".to_string(),
                     methods: vec![
-                        amber_ast::Function {
-                            name: "sum".into(),
+                        Function {
+                            name: "sum".to_string(),
                             params: vec![
+                                Param::SelfParam,
                                 Param::Typed {
-                                    name: "x".into(),
+                                    name: "x".to_string(),
                                     ty: Type::I32,
                                 },
                                 Param::Typed {
-                                    name: "y".into(),
+                                    name: "y".to_string(),
                                     ty: Type::I32,
                                 },
                             ],
                             return_type: Some(Type::I32),
-                            body: Some(return_block(Expression::BinaryExpr {
-                                left: Box::new(Expression::Identifier("x".into())),
-                                op: BinaryOp::Add,
-                                right: Box::new(Expression::Identifier("y".into())),
-                            })),
                             is_extern: false,
+                            body: Some(return_block(amber_ast::Expression::BinaryExpr {
+                                left: Box::new(amber_ast::Expression::Identifier("x".to_string())),
+                                op: amber_ast::BinaryOp::Add,
+                                right: Box::new(amber_ast::Expression::Identifier("y".to_string())),
+                            })),
                         },
-                        amber_ast::Function {
-                            name: "reset".into(),
+                        Function {
+                            name: "reset".to_string(),
                             params: vec![Param::SelfParam],
                             return_type: None,
+                            is_extern: false,
                             body: Some(Block {
                                 statements: vec![Statement::Return(None)],
                             }),
-                            is_extern: false,
                         },
                     ],
                 }),
-                Statement::LetBinding(LetBinding {
+                Statement::LetBinding(amber_ast::LetBinding {
                     modifier: Some(Modifier::Comptime),
                     is_mutable: false,
-                    name: "BAUD".into(),
+                    name: "BAUD".to_string(),
                     ty: Some(Type::I32),
-                    value: Some(Expression::Literal(Literal::Numeric(
+                    value: Some(amber_ast::Expression::Literal(Literal::Numeric(
                         NumericLiteral::Integer(9600),
                     ))),
                 }),
@@ -535,31 +126,8 @@ mod tests {
         };
 
         let output = generate_program(&program).unwrap();
-        let expected = r#"#include <stdint.h>
-#include <stdbool.h>
 
-typedef struct {
-    int32_t x;
-    int32_t y;
-} Point;
-
-int32_t add(int32_t a, int32_t b) {
-    return (a + b);
-}
-
-extern void HAL_Delay(uint32_t ms);
-
-int32_t Point_sum(int32_t x, int32_t y) {
-    return (x + y);
-}
-
-void Point_reset(Point* self) {
-    return;
-}
-
-const int32_t BAUD = 9600;
-
-"#;
+        let expected = "#include <stdint.h>\n#include <stdbool.h>\n\ntypedef struct {\n    int32_t x;\n    int32_t y;\n} Point;\n\nint32_t add(int32_t a, int32_t b) {\n    return (a + b);\n}\n\nextern void HAL_Delay(uint32_t ms);\n\nint32_t Point_sum(Point* self, int32_t x, int32_t y) {\n    return (x + y);\n}\n\nvoid Point_reset(Point* self) {\n    return;\n}\n\nconst int32_t BAUD = 9600;\n\n";
 
         assert_eq!(output, expected);
     }
