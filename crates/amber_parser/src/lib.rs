@@ -4,8 +4,8 @@ use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_derive::Parser;
 
 use amber_ast::{
-    Block, Expression, Function, ImplBlock, Modifier, Param, Program, Statement, StructDef,
-    StructField, Type,
+    Block, Expression, Function, ImplBlock, LetBinding, Modifier, Param, Program, Statement,
+    StructDef, StructField, Type,
 };
 
 #[derive(Parser)]
@@ -108,11 +108,13 @@ fn parse_declaration(pair: Pair<Rule>) -> Statement {
         }
     }
     Statement::LetBinding {
-        modifier,
-        is_mutable,
-        name,
-        ty,
-        value,
+        0: LetBinding {
+            modifier,
+            is_mutable,
+            name,
+            ty,
+            value,
+        },
     }
 }
 
@@ -349,11 +351,14 @@ mod tests {
 
         // expected:
         if let Statement::LetBinding {
-            modifier,
-            is_mutable,
-            name,
-            value,
-            ..
+            0:
+                LetBinding {
+                    modifier,
+                    is_mutable,
+                    name,
+                    value,
+                    ..
+                },
         } = &program.statements[0]
         {
             assert_eq!(*modifier, Some(Modifier::Comptime));
@@ -375,7 +380,9 @@ mod tests {
         let program = build_ast(code).unwrap();
 
         if let Statement::LetBinding {
-            value: Some(expr), ..
+            0: LetBinding {
+                value: Some(expr), ..
+            },
         } = &program.statements[0]
         {
             // out: Add
@@ -413,7 +420,9 @@ mod tests {
         let program = build_ast(code).unwrap();
 
         if let Statement::LetBinding {
-            value: Some(expr), ..
+            0: LetBinding {
+                value: Some(expr), ..
+            },
         } = &program.statements[0]
         {
             if let Expression::BinaryExpr { op, .. } = expr {

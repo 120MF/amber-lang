@@ -48,18 +48,12 @@ impl CodeGenerator {
 
     fn emit_statement(&mut self, statement: &Statement) -> Result<(), CodegenError> {
         match statement {
-            Statement::LetBinding {
-                modifier,
-                is_mutable,
-                name,
-                ty,
-                value,
-            } => self.emit_let_binding(
-                modifier.clone(),
-                *is_mutable,
-                name,
-                ty.as_ref(),
-                value.as_ref(),
+            Statement::LetBinding(lb) =>self.emit_let_binding(
+                lb.modifier.clone(),
+                lb.is_mutable,
+                &lb.name,
+                lb.ty.as_ref(),
+                lb.value.as_ref(),
             ),
             Statement::ExprStatement(expr) => self.emit_expr_statement(expr),
             Statement::Struct(def) => self.emit_struct(def),
@@ -331,19 +325,13 @@ impl CodeGenerator {
         indent: usize,
     ) -> Result<(), CodegenError> {
         match statement {
-            Statement::LetBinding {
-                modifier,
-                is_mutable,
-                name,
-                ty,
-                value,
-            } => {
+            Statement::LetBinding(lb) => {
                 let line = self.render_let_binding_line(
-                    modifier.clone(),
-                    *is_mutable,
-                    name,
-                    ty.as_ref(),
-                    value.as_ref(),
+                    lb.modifier.clone(),
+                    lb.is_mutable,
+                    &lb.name,
+                    lb.ty.as_ref(),
+                    lb.value.as_ref(),
                 )?;
                 self.push_indented_line(indent, &line);
             }
@@ -374,6 +362,7 @@ impl CodeGenerator {
 
 #[cfg(test)]
 mod tests {
+    use amber_ast::LetBinding;
     use super::*;
 
     #[test]
@@ -464,11 +453,13 @@ mod tests {
                     ],
                 }),
                 Statement::LetBinding {
-                    modifier: Some(Modifier::Comptime),
-                    is_mutable: false,
-                    name: "BAUD".into(),
-                    ty: Some(Type::I32),
-                    value: Some(Expression::Integer(9600)),
+                    0: LetBinding {
+                        modifier:Some(Modifier::Comptime),
+                        is_mutable: false,
+                        name: "BAUD".into(),
+                        ty: Some(Type::I32),
+                        value: Some(Expression::Integer(9600)),
+                    },
                 },
             ],
         };

@@ -1,102 +1,12 @@
-#[derive(Debug, Clone, PartialEq)]
-pub struct Program {
-    pub statements: Vec<Statement>,
-}
+mod decl;
+mod expr;
+mod stmt;
+mod types;
+mod program;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Block {
-    pub statements: Vec<Statement>,
-}
+pub use decl::{Function, ImplBlock, StructDef, StructField, Param};
+pub use expr::{BinaryOp, Expression};
+pub use stmt::{Statement, Modifier, LetBinding};
+pub use types::Type;
+pub use program::{Block, Program};
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Statement {
-    LetBinding {
-        modifier: Option<Modifier>, // comptime / runtime / None
-        is_mutable: bool,           // let = false, var = true
-        name: String,
-        ty: Option<Type>, // type
-        value: Option<Expression>,
-    },
-    ExprStatement(Expression),
-    Struct(StructDef),
-    Function(Function),
-    Impl(ImplBlock),
-    Assignment {
-        target: String,
-        value: Expression,
-    },
-    Return(Option<Expression>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Modifier {
-    Comptime,
-    Runtime,
-    // @section maybe...
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Type {
-    U8,
-    U16,
-    U32,
-    U64,
-    I8,
-    I16,
-    I32,
-    I64,
-    Bool,
-    Custom(String),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum BinaryOp {
-    Add,
-    Sub,
-    Mul,
-    Div,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Expression {
-    Integer(i64),
-    Identifier(String),
-    BinaryExpr {
-        left: Box<Expression>,
-        op: BinaryOp,
-        right: Box<Expression>,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct StructDef {
-    pub name: String,
-    pub fields: Vec<StructField>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct StructField {
-    pub name: String,
-    pub ty: Type,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Function {
-    pub name: String,
-    pub params: Vec<Param>,
-    pub return_type: Option<Type>,
-    pub body: Option<Block>,
-    pub is_extern: bool,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Param {
-    SelfParam,
-    Typed { name: String, ty: Type },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ImplBlock {
-    pub target: String,
-    pub methods: Vec<Function>,
-}
