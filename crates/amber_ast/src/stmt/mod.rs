@@ -17,9 +17,6 @@ pub enum Statement {
     Struct(StructDef),
     Function(Function),
     Impl(ImplBlock),
-    Assignment {
-        target: String,
-        value: Expression,
-    },
+    Assignment { target: String, value: Expression },
     Return(Option<Expression>),
 }

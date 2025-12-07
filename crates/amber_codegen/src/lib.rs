@@ -48,7 +48,7 @@ impl CodeGenerator {
 
     fn emit_statement(&mut self, statement: &Statement) -> Result<(), CodegenError> {
         match statement {
-            Statement::LetBinding(lb) =>self.emit_let_binding(
+            Statement::LetBinding(lb) => self.emit_let_binding(
                 lb.modifier.clone(),
                 lb.is_mutable,
                 &lb.name,
@@ -362,8 +362,8 @@ impl CodeGenerator {
 
 #[cfg(test)]
 mod tests {
-    use amber_ast::LetBinding;
     use super::*;
+    use amber_ast::LetBinding;
 
     #[test]
     fn generates_structs_functions_and_impls() {
@@ -454,7 +454,7 @@ mod tests {
                 }),
                 Statement::LetBinding {
                     0: LetBinding {
-                        modifier:Some(Modifier::Comptime),
+                        modifier: Some(Modifier::Comptime),
                         is_mutable: false,
                         name: "BAUD".into(),
                         ty: Some(Type::I32),

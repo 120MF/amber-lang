@@ -1,5 +1,5 @@
-use crate::program::Block;
 use crate::Type;
+use crate::program::Block;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {

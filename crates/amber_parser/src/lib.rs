@@ -1,3 +1,5 @@
+mod error;
+
 use pest::Parser;
 use pest::iterators::Pair;
 use pest::pratt_parser::{Assoc, Op, PrattParser};
@@ -8,12 +10,15 @@ use amber_ast::{
     StructDef, StructField, Type,
 };
 
+pub use error::ParseError;
+
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
 pub struct AmberParser;
 
-pub fn parse_source(input: &str) -> Result<(), String> {
-    let pairs = AmberParser::parse(Rule::program, input).map_err(|e| format!("{}", e))?;
+pub fn parse_source(input: &str) -> Result<(), ParseError> {
+    let pairs = AmberParser::parse(Rule::program, input)
+        .map_err(|e| ParseError::from_pest(e, "<input>", input.to_string()))?;
     for pair in pairs {
         println!("Rule: {:?}", pair.as_rule());
         println!("Text: {}", pair.as_str());
@@ -26,8 +31,9 @@ pub fn parse_source(input: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn build_ast(input: &str) -> Result<Program, String> {
-    let mut pairs = AmberParser::parse(Rule::program, input).map_err(|e| format!("{}", e))?;
+pub fn build_ast(input: &str) -> Result<Program, ParseError> {
+    let mut pairs = AmberParser::parse(Rule::program, input)
+        .map_err(|e| ParseError::from_pest(e, "<input>", input.to_string()))?;
 
     let root = pairs.next().unwrap();
 

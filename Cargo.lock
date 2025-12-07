@@ -54,6 +54,7 @@ dependencies = [
  "miette",
  "pest",
  "pest_derive",
+ "thiserror",
 ]
 
 [[package]]
