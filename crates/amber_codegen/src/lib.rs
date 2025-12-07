@@ -1,6 +1,6 @@
 use amber_ast::{
-    BinaryOp, Block, Expression, Function, ImplBlock, Modifier, Param, Program, Statement,
-    StructDef, StructField, Type,
+    BinaryOp, Block, Expression, Function, ImplBlock, Literal, Modifier, NumericLiteral, Param,
+    Program, Statement, StructDef, StructField, Type,
 };
 use thiserror::Error;
 
@@ -265,6 +265,8 @@ impl CodeGenerator {
             Type::I16 => "int16_t".into(),
             Type::I32 => "int32_t".into(),
             Type::I64 => "int64_t".into(),
+            Type::F32 => "float".into(),
+            Type::F64 => "double".into(),
             Type::Bool => "bool".into(),
             Type::Custom(name) => name.clone(),
         }
@@ -277,7 +279,7 @@ impl CodeGenerator {
 
     fn render_expr(&self, expr: &Expression) -> String {
         match expr {
-            Expression::Integer(value) => value.to_string(),
+            Expression::Literal(lit) => self.render_literal(lit),
             Expression::Identifier(ident) => ident.clone(),
             Expression::BinaryExpr { left, op, right } => {
                 format!(
@@ -287,6 +289,21 @@ impl CodeGenerator {
                     self.render_expr(right)
                 )
             }
+        }
+    }
+
+    fn render_literal(&self, lit: &Literal) -> String {
+        match lit {
+            Literal::Numeric(num) => self.render_numeric_literal(num),
+            Literal::Bool(b) => if *b { "true".to_string() } else { "false".to_string() },
+        }
+    }
+
+    fn render_numeric_literal(&self, lit: &NumericLiteral) -> String {
+        match lit {
+            NumericLiteral::Integer(i) => i.to_string(),
+            NumericLiteral::Float(f) => format!("{}f", f),
+            NumericLiteral::Double(d) => d.to_string(),
         }
     }
 
@@ -363,7 +380,7 @@ impl CodeGenerator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use amber_ast::LetBinding;
+    use amber_ast::{LetBinding, Literal, NumericLiteral};
 
     #[test]
     fn generates_structs_functions_and_impls() {
@@ -452,15 +469,15 @@ mod tests {
                         },
                     ],
                 }),
-                Statement::LetBinding {
-                    0: LetBinding {
-                        modifier: Some(Modifier::Comptime),
-                        is_mutable: false,
-                        name: "BAUD".into(),
-                        ty: Some(Type::I32),
-                        value: Some(Expression::Integer(9600)),
-                    },
-                },
+                Statement::LetBinding(LetBinding {
+                    modifier: Some(Modifier::Comptime),
+                    is_mutable: false,
+                    name: "BAUD".into(),
+                    ty: Some(Type::I32),
+                    value: Some(Expression::Literal(Literal::Numeric(
+                        NumericLiteral::Integer(9600),
+                    ))),
+                }),
             ],
         };
 

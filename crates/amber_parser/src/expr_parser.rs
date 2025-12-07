@@ -1,9 +1,9 @@
 use pest::iterators::Pair;
 
-use amber_ast::{BinaryOp, Expression};
+use amber_ast::{BinaryOp, Expression, Literal, NumericLiteral};
 
-use crate::pratt::create_expr_parser;
 use crate::Rule;
+use crate::pratt::create_expr_parser;
 
 /// Parse a primary expression (atom, integer, identifier, or parenthesized expression)
 fn parse_primary(primary: Pair<Rule>) -> Expression {
@@ -15,7 +15,21 @@ fn parse_primary(primary: Pair<Rule>) -> Expression {
         }
         Rule::int_lit => {
             let val: i64 = primary.as_str().parse().unwrap();
-            Expression::Integer(val)
+            Expression::Literal(Literal::Numeric(NumericLiteral::Integer(val)))
+        }
+        Rule::float_lit => {
+            let literal = primary.as_str();
+            let cleaned = literal.trim_end_matches('f');
+            let val: f64 = cleaned.parse().unwrap();
+            if literal.ends_with('f') {
+                Expression::Literal(Literal::Numeric(NumericLiteral::Float(val as f32)))
+            } else {
+                Expression::Literal(Literal::Numeric(NumericLiteral::Double(val)))
+            }
+        }
+        Rule::bool_lit => {
+            let b = primary.as_str() == "true";
+            Expression::Literal(Literal::Bool(b))
         }
         Rule::ident => Expression::Identifier(primary.as_str().to_string()),
         Rule::expr => parse_expr(primary),
@@ -55,14 +69,14 @@ mod tests {
         let code = "let a = 1 + 2 * 3;";
         let program = build_ast(code).unwrap();
 
-        if let amber_ast::Statement::LetBinding(binding) = &program.statements[0]
-        {
+        if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
             if let Some(expr) = &binding.value {
                 if let Expression::BinaryExpr { left, op, right } = expr {
                     assert_eq!(*op, BinaryOp::Add);
 
-                    if let Expression::Integer(v) = **left {
-                        assert_eq!(v, 1);
+                    if let Expression::Literal(Literal::Numeric(num)) = &**left {
+                        assert!(num.is_integer());
+                        assert_eq!(num.to_i64(), 1);
                     } else {
                         panic!("Left should be 1");
                     }
@@ -89,8 +103,7 @@ mod tests {
         let code = "let a = (1 + 2) * 3;";
         let program = build_ast(code).unwrap();
 
-        if let amber_ast::Statement::LetBinding(binding) = &program.statements[0]
-        {
+        if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
             if let Some(expr) = &binding.value {
                 if let Expression::BinaryExpr { op, .. } = expr {
                     assert_eq!(*op, BinaryOp::Mul);
@@ -98,6 +111,39 @@ mod tests {
                     panic!("Top level should be multiplication");
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_bool_literal() {
+        let code = "let flag: bool = true;";
+        let program = build_ast(code).unwrap();
+
+        if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
+            assert_eq!(binding.name, "flag");
+            if let Some(Expression::Literal(Literal::Bool(b))) = &binding.value {
+                assert!(*b);
+            } else {
+                panic!("Expected bool literal");
+            }
+        } else {
+            panic!("Expected LetBinding");
+        }
+    }
+
+    #[test]
+    fn test_bool_literal_false() {
+        let code = "let active = false;";
+        let program = build_ast(code).unwrap();
+
+        if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
+            if let Some(Expression::Literal(Literal::Bool(b))) = &binding.value {
+                assert!(!*b);
+            } else {
+                panic!("Expected bool literal false");
+            }
+        } else {
+            panic!("Expected LetBinding");
         }
     }
 }

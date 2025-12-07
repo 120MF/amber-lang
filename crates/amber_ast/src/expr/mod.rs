@@ -1,10 +1,12 @@
 mod binary;
+mod literal;
 
 pub use binary::BinaryOp;
+pub use literal::{Literal, NumericLiteral};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
-    Integer(i64),
+    Literal(Literal),
     Identifier(String),
     BinaryExpr {
         left: Box<Expression>,

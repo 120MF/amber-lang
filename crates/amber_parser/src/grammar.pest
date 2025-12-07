@@ -28,13 +28,12 @@ assignment = { ident ~ "=" ~ expr ~ ";" }
 expr_stmt = { expr ~ ";" }
 return_stmt = { "return" ~ expr? ~ ";" }
 
-//TODO: f32、f64、str
 type_def = { builtin_type | ident }
-builtin_type = { "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "bool" }
+builtin_type = { "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64" | "bool" }
 
-atom = { int_lit | ident | "(" ~ expr ~ ")" }
+atom = { float_lit | int_lit | bool_lit | ident | "(" ~ expr ~ ")" }
 
-bin_op = _{ add | sub | mul | div}
+bin_op = _{ add | sub | mul | div }
   add = {"+"}
   sub = {"-"}
   mul = {"*"}
@@ -44,6 +43,8 @@ expr = { atom ~ (bin_op ~ atom)* }
 
 ident =   @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 int_lit = @{ ASCII_DIGIT+ }
+float_lit = @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ ~ ( "f" | "d" )? }
+bool_lit = @{ "true" | "false" }
 
 struct_def = { "struct" ~ ident ~ "{" ~ struct_fields? ~ "}" }
 struct_fields = { struct_field ~ ("," ~ struct_field)* ~ ","? }

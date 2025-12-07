@@ -1,9 +1,9 @@
 use pest::iterators::Pair;
 
-use amber_ast::{Block, Modifier, Statement, LetBinding};
+use amber_ast::{Block, LetBinding, Modifier, Statement};
 
-use crate::expr_parser::parse_expr;
 use crate::Rule;
+use crate::expr_parser::parse_expr;
 
 /// Parse a declaration (let/var binding)
 pub fn parse_declaration(pair: Pair<Rule>) -> Statement {
@@ -130,14 +130,13 @@ mod tests {
         let code = "comptime let baud = 9600;";
         let program = build_ast(code).unwrap();
 
-        if let Statement::LetBinding(binding) = &program.statements[0]
-        {
+        if let Statement::LetBinding(binding) = &program.statements[0] {
             assert_eq!(binding.modifier, Some(Modifier::Comptime));
             assert!(!binding.is_mutable);
             assert_eq!(binding.name, "baud");
 
-            if let Some(Expression::Integer(val)) = &binding.value {
-                assert_eq!(*val, 9600);
+            if let Some(Expression::Literal(val)) = &binding.value {
+                assert_eq!(val.to_string(), "9600");
             } else {
                 panic!("Expected integer value");
             }
