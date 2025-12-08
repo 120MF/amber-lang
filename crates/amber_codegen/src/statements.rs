@@ -25,8 +25,8 @@ pub fn emit_statement(buffer: &mut CodeBuffer, statement: &Statement) -> Result<
         Statement::Struct(def) => crate::declarations::emit_struct(buffer, def),
         Statement::Function(func) => crate::declarations::emit_function(buffer, func, None),
         Statement::Impl(block) => crate::declarations::emit_impl(buffer, block),
-        Statement::IfElse(_) => {
-            panic!("unexpected statement at top level: if-else should be inside block")
+        Statement::IfElse(_) | Statement::WhileLoop(_) => {
+            panic!("unexpected statement at top level: should be inside block")
         }
         Statement::Assignment { .. } | Statement::Return(_) => {
             panic!("unexpected statement at top level: {:?}", statement)
@@ -111,7 +111,11 @@ pub fn emit_block_statement(
             buffer.push_indented_line(indent, &line);
             Ok(())
         }
-        Statement::Assignment { .. } => todo!(),
+        Statement::Assignment { target, value } => {
+            let line = format!("{} = {};", target, render_expr(value));
+            buffer.push_indented_line(indent, &line);
+            Ok(())
+        }
         Statement::Return(expr) => {
             if let Some(e) = expr {
                 let line = format!("return {};", render_expr(e));
@@ -129,6 +133,13 @@ pub fn emit_block_statement(
                 buffer.push_indented_line(indent, "} else {");
                 emit_block(buffer, else_block, indent + 1)?;
             }
+            buffer.push_indented_line(indent, "}");
+            Ok(())
+        }
+        Statement::WhileLoop(while_stmt) => {
+            let cond_str = render_expr(&while_stmt.condition);
+            buffer.push_indented_line(indent, &format!("while ({}) {{", cond_str));
+            emit_block(buffer, &while_stmt.block, indent + 1)?;
             buffer.push_indented_line(indent, "}");
             Ok(())
         }

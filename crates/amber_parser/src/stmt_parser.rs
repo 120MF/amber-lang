@@ -1,6 +1,6 @@
 use pest::iterators::Pair;
 
-use amber_ast::{Block, IfElse, LetBinding, Modifier, Statement};
+use amber_ast::{Block, IfElse, LetBinding, Modifier, Statement, WhileLoop};
 
 use crate::Rule;
 use crate::expr_parser::parse_expr;
@@ -80,10 +80,10 @@ pub fn parse_expr_stmt(pair: Pair<Rule>) -> Statement {
 /// Parse an if-else statement
 pub fn parse_if_stmt(pair: Pair<Rule>) -> Statement {
     let mut inner = pair.into_inner();
-    
+
     let condition = parse_expr(inner.next().expect("if must have condition"));
     let then_block = parse_block(inner.next().expect("if must have then block"));
-    
+
     let else_block = if let Some(else_part) = inner.next() {
         match else_part.as_rule() {
             Rule::block => Some(parse_block(else_part)),
@@ -99,11 +99,24 @@ pub fn parse_if_stmt(pair: Pair<Rule>) -> Statement {
     } else {
         None
     };
-    
+
     Statement::IfElse(IfElse {
         condition,
         then_block,
         else_block,
+    })
+}
+
+/// Parse a while loop statement
+pub fn parse_while_stmt(pair: Pair<Rule>) -> Statement {
+    let mut inner = pair.into_inner();
+
+    let condition = parse_expr(inner.next().expect("while must have condition"));
+    let block = parse_block(inner.next().expect("while must have block"));
+
+    Statement::WhileLoop(WhileLoop {
+        condition,
+        block,
     })
 }
 
@@ -124,6 +137,7 @@ fn parse_block_statement(pair: Pair<Rule>) -> Statement {
         Rule::expr_stmt => parse_expr_stmt(pair),
         Rule::return_stmt => parse_return(pair),
         Rule::if_stmt => parse_if_stmt(pair),
+        Rule::while_stmt => parse_while_stmt(pair),
         _ => panic!("unexpected statement '{:?}' inside block", pair.as_rule()),
     }
 }
@@ -174,5 +188,18 @@ mod tests {
         } else {
             panic!("Expected LetBinding");
         }
+    }
+
+    #[test]
+    fn test_while_loop_parsing() {
+        let code = r#"
+            fn test() {
+                while true {
+                    // empty block
+                }
+            }
+        "#;
+        let result = crate::build_ast(code);
+        assert!(result.is_ok());
     }
 }

@@ -9,6 +9,7 @@ statement = {
     expr_stmt |
     return_stmt |
     if_stmt |
+    while_stmt |
     struct_def |
     function_def |
     impl_block
@@ -33,6 +34,7 @@ return_stmt = { "return" ~ expr? ~ ";" }
 // Control Statement
 
 if_stmt = { "if" ~ expr ~ block ~ ("else" ~ ( if_stmt | block ))?}
+while_stmt = { "while" ~ expr ~ block }
 
 type_def = { builtin_type | ident }
 builtin_type = { "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64" | "bool" }
@@ -115,6 +117,6 @@ param_typed = { ident ~ ":" ~ type_def }
 return_type = { "->" ~ type_def }
 function_body = { block | ";" }
 
-block = { "{" ~ (declaration | assignment | expr_stmt | return_stmt | if_stmt)* ~ "}" }
+block = { "{" ~ (declaration | assignment | expr_stmt | return_stmt | if_stmt | while_stmt)* ~ "}" }
 
 impl_block = { "impl" ~ ident ~ "{" ~ function_def* ~ "}" }
