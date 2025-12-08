@@ -66,6 +66,7 @@ pub fn render_unary_op(op: &UnaryOp) -> &'static str {
         UnaryOp::BitNot => "~",
         UnaryOp::PreInc => "++",
         UnaryOp::PreDec => "--",
+        UnaryOp::Deref => "*",
     }
 }
 

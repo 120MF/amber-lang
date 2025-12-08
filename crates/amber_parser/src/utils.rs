@@ -18,7 +18,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Type {
         "bool" => Type::Bool,
         "char" => Type::Char,
         "void" => Type::Void,
-        other => Type::Custom(other.to_string()),
+        other => Type::Named(other.to_string()),
     }
 }
 

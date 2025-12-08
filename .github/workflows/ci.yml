@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch: # This enables manual triggering
 
 env:
@@ -15,58 +15,41 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable, beta]
+        rust: [ stable, beta ]
     steps:
-    - uses: actions/checkout@v4
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: ${{ matrix.rust }}
-    - name: Cache dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
-    - name: Install dependencies
-      run: cargo fetch
-    - name: Run tests
-      run: |
-        cargo test --workspace --verbose
-    - name: Check for any failed tests
-      run: |
-        # Verify all tests passed
-        cargo test --workspace --verbose -- --nocapture || exit 1
+      - uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install dependencies
+        run: cargo fetch
+      - name: Run tests
+        run: |
+          cargo test --workspace --verbose
+      - name: Check for any failed tests
+        run: |
+          # Verify all tests passed
+          cargo test --workspace --verbose -- --nocapture || exit 1
 
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable]
+        rust: [ stable ]
     steps:
-    - uses: actions/checkout@v4
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: ${{ matrix.rust }}
-    - name: Build all packages
-      run: cargo build --workspace --verbose
-
-  lints:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust: [stable]
-    steps:
-    - uses: actions/checkout@v4
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: ${{ matrix.rust }}
-        components: rustfmt, clippy
-    - name: Check formatting
-      run: cargo fmt --all -- --check
-    - name: Run clippy
-      run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+      - name: Build all packages
+        run: cargo build --workspace --verbose

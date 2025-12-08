@@ -36,7 +36,9 @@ return_stmt = { "return" ~ expr? ~ ";" }
 if_stmt = { "if" ~ expr ~ block ~ ("else" ~ ( if_stmt | block ))?}
 while_stmt = { "while" ~ expr ~ block }
 
-type_def = { builtin_type | ident }
+type_def = { ptr_type | builtin_type | ident }
+
+ptr_type = { "*" ~ "mut"? ~ type_def }
 builtin_type = { "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64" | "bool" | "char" | "void" }
 
 atom = { float_lit | int_lit | bool_lit | char_lit | ident | "(" ~ expr ~ ")" }
@@ -51,6 +53,7 @@ prefix_not = { "!" }
 prefix_bitnot = { "~" }
 prefix_preinc = { "++" }
 prefix_predec = { "--" }
+prefix_deref = { "*" }
 
 // Arithmetic operators
 add_op = { "+" }
@@ -78,7 +81,7 @@ gt_op = { ">" }
 and_op = { "&&" }
 or_op = { "||" }
 
-prefix_op = _{ prefix_minus | prefix_plus | prefix_not | prefix_bitnot | prefix_preinc | prefix_predec }
+prefix_op = _{ prefix_minus | prefix_plus | prefix_not | prefix_bitnot | prefix_preinc | prefix_predec | prefix_deref }
 binary_op =  _ { or_op | and_op | le_op | ge_op | eq_op | ne_op | shl_op | shr_op | bitwise_or | bitwise_xor | bitwise_and | lt_op | gt_op | add_op | sub_op | mul_op | div_op | mod_op}
 
 // Ternary operators

@@ -1,4 +1,5 @@
 use amber_ast::{Modifier, Type};
+use std::ops::Deref;
 
 pub fn binding_qualifier(modifier: Option<Modifier>, is_mutable: bool) -> String {
     let mut flags = Vec::new();
@@ -30,7 +31,12 @@ pub fn type_to_c(ty: &Type) -> String {
         Type::Bool => "bool".into(),
         Type::Char => "char".into(),
         Type::Void => "void".into(),
-        Type::Custom(name) => name.clone(),
+        Type::Named(name) => name.clone(),
+        Type::Pointer { inner, is_mut } => {
+            let modifier = if *is_mut { "const" } else { "" };
+            let inner_type = type_to_c(inner.deref());
+            format!("{}* {}", inner_type, modifier)
+        }
     }
 }
 

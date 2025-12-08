@@ -41,7 +41,9 @@ lazy_static! {
                 | Op::prefix(Rule::prefix_not)
                 | Op::prefix(Rule::prefix_bitnot)
                 | Op::prefix(Rule::prefix_preinc)
-                | Op::prefix(Rule::prefix_predec))
+                | Op::prefix(Rule::prefix_predec)
+                | Op::prefix(Rule::prefix_deref)
+        )
     };
 }
 
