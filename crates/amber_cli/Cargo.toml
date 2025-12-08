@@ -12,3 +12,6 @@ miette.workspace = true
 
 amber_parser.workspace = true
 amber_codegen.workspace = true
+
+[dev-dependencies]
+tempfile = "3.0"

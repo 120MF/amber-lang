@@ -1,0 +1,15 @@
+// Control flow statements test
+fn main() {
+    const limit: i32 = 5;
+    var counter: i32 = 0;
+
+    while counter < limit {
+        counter = counter + 1;
+    }
+
+    if counter > 0 {
+        const result: i32 = counter * 2;
+    } else {
+        const result: i32 = 0;
+    }
+}

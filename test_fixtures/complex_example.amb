@@ -1,0 +1,15 @@
+// Complex example combining variables and control flow
+fn main() {
+    const sum: i32 = 5 + 3;
+
+    var counter: i32 = 0;
+    while counter < sum {
+        counter = counter + 1;
+    }
+
+    if counter > 10 {
+        const big_number: i32 = counter * 2;
+    } else {
+        const small_number: i32 = counter / 2;
+    }
+}

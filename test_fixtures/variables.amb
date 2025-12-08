@@ -1,0 +1,4 @@
+// Basic variable declarations test
+const x: i32 = 5;
+var y: i32 = 10;
+comptime const z: i32 = 42;

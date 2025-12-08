@@ -1,0 +1,16 @@
+// Function definitions test
+fn add(a: i32, b: i32) -> i32 {
+    return a + b;
+}
+
+fn print_hello() {
+    // This would print something in a real implementation
+}
+
+extern fn external_func(x: u32);
+
+fn main() {
+    const a: i32 = 2;
+    const b: i32 = 3;
+    const result: i32 = a + b;
+}
