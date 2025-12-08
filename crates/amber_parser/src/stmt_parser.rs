@@ -5,7 +5,7 @@ use amber_ast::{Block, IfElse, LetBinding, Modifier, Statement, WhileLoop};
 use crate::Rule;
 use crate::expr_parser::parse_expr;
 
-/// Parse a declaration (let/var binding)
+/// Parse a declaration (const/var binding)
 pub fn parse_declaration(pair: Pair<Rule>) -> Statement {
     let inner = pair.into_inner();
 
@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_basic_declaration() {
-        let code = "comptime let baud_rate = 9600;";
+        let code = "comptime const baud_rate = 9600;";
         let result = crate::parse_source(code);
         assert!(result.is_ok());
     }
@@ -165,14 +165,14 @@ mod tests {
     #[test]
     fn test_fail_syntax() {
         // miss ";"
-        let code = "let a = 10";
+        let code = "const a = 10";
         let result = crate::parse_source(code);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_ast_generation() {
-        let code = "comptime let baud = 9600;";
+        let code = "comptime const baud = 9600;";
         let program = build_ast(code).unwrap();
 
         if let Statement::LetBinding(binding) = &program.statements[0] {

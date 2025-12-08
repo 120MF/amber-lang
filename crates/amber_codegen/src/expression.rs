@@ -15,7 +15,11 @@ pub fn render_expr(expr: &Expression) -> String {
         Expression::UnaryExpr { op, expr } => {
             format!("({}{})", render_unary_op(op), render_expr(expr))
         }
-        Expression::TernaryExpr { condition, then_expr, else_expr } => {
+        Expression::TernaryExpr {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
             format!(
                 "({} ? {} : {})",
                 render_expr(condition),
@@ -36,6 +40,7 @@ pub fn render_literal(lit: &Literal) -> String {
                 "false".to_string()
             }
         }
+        &Literal::Char(c) => c.to_string(),
     }
 }
 

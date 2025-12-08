@@ -81,7 +81,7 @@ mod tests {
     fn syntax_error_reports_miette_diagnostic() {
         let compiler = AmberCompiler::default();
         let err = compiler
-            .compile_source("let a = 1", Path::new("syntax.amb"))
+            .compile_source("const a = 1", Path::new("syntax.amb"))
             .unwrap_err();
         let mut rendered = String::new();
         GraphicalReportHandler::new()

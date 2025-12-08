@@ -31,6 +31,10 @@ fn parse_primary(primary: Pair<Rule>) -> Expression {
             let b = primary.as_str() == "true";
             Expression::Literal(Literal::Bool(b))
         }
+        Rule::char_lit => {
+            let c = primary.as_str();
+            Expression::Literal(Literal::Char(c.as_bytes()[1] as char))
+        }
         Rule::ident => Expression::Identifier(primary.as_str().to_string()),
         Rule::expr | Rule::ternary_expr | Rule::math_expr | Rule::unary => parse_expr(primary),
         _ => panic!("Unknown primary: {:?}", primary.as_rule()),
@@ -82,16 +86,18 @@ pub fn parse_expr(pair: Pair<Rule>) -> Expression {
         Rule::ternary_expr => {
             let mut inner = pair.into_inner();
             let condition = parse_math_expr(inner.next().expect("ternary: missing condition"));
-            
+
             // Check if there's a question mark
             if let Some(question) = inner.next() {
                 match question.as_rule() {
                     Rule::question => {
                         // This is a ternary expression
-                        let then_expr = parse_expr(inner.next().expect("ternary: missing then expression"));
+                        let then_expr =
+                            parse_expr(inner.next().expect("ternary: missing then expression"));
                         let _colon = inner.next().expect("ternary: missing colon");
-                        let else_expr = parse_expr(inner.next().expect("ternary: missing else expression"));
-                        
+                        let else_expr =
+                            parse_expr(inner.next().expect("ternary: missing else expression"));
+
                         return Expression::TernaryExpr {
                             condition: Box::new(condition),
                             then_expr: Box::new(then_expr),
@@ -145,7 +151,7 @@ mod tests {
 
     #[test]
     fn test_expression_precedence() {
-        let code = "let a = 1 + 2 * 3;";
+        let code = "const a = 1 + 2 * 3;";
         let program = build_ast(code).unwrap();
 
         if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
@@ -179,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_parenthesis() {
-        let code = "let a = (1 + 2) * 3;";
+        let code = "const a = (1 + 2) * 3;";
         let program = build_ast(code).unwrap();
 
         if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
@@ -195,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_bool_literal() {
-        let code = "let flag: bool = true;";
+        let code = "const flag: bool = true;";
         let program = build_ast(code).unwrap();
 
         if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
@@ -212,7 +218,7 @@ mod tests {
 
     #[test]
     fn test_bool_literal_false() {
-        let code = "let active = false;";
+        let code = "const active = false;";
         let program = build_ast(code).unwrap();
 
         if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
@@ -225,5 +231,20 @@ mod tests {
             panic!("Expected LetBinding");
         }
     }
-}
 
+    #[test]
+    fn test_char_literal() {
+        let code = "const character = 'a';";
+        let program = build_ast(code).unwrap();
+
+        if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
+            if let Some(Expression::Literal(Literal::Char(c))) = &binding.value {
+                assert_eq!(*c, 'a');
+            } else {
+                panic!("Expected char literal 'c'")
+            }
+        } else {
+            panic!("Expected LetBinding");
+        }
+    }
+}

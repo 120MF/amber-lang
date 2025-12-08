@@ -74,7 +74,7 @@ mod tests {
 
     #[test]
     fn test_basic_declaration() {
-        let code = "comptime let baud_rate = 9600;";
+        let code = "comptime const baud_rate = 9600;";
         let result = parse_source(code);
         assert!(result.is_ok());
     }
@@ -88,7 +88,7 @@ mod tests {
 
     #[test]
     fn test_fail_syntax() {
-        let code = "let a = 10";
+        let code = "const a = 10";
         let result = parse_source(code);
         assert!(result.is_err());
     }

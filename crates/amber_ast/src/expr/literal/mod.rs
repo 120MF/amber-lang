@@ -11,7 +11,7 @@ pub enum Literal {
     Numeric(NumericLiteral),
     /// Boolean literals: true or false
     Bool(bool),
-    // Future:
+    Char(char),
     // String(String),
     // Array(Vec<Literal>),
 }
@@ -22,6 +22,7 @@ impl Literal {
         match self {
             Literal::Numeric(num) => num.inferred_type(),
             Literal::Bool(_) => "bool",
+            Literal::Char(_) => "char",
         }
     }
 
@@ -41,6 +42,7 @@ impl fmt::Display for Literal {
         match self {
             Literal::Numeric(num) => write!(f, "{}", num),
             Literal::Bool(b) => write!(f, "{}", b),
+            Literal::Char(c) => write!(f, "{}", c),
         }
     }
 }
@@ -61,7 +63,7 @@ mod tests {
     fn test_literal_bool() {
         let lit_true = Literal::Bool(true);
         let lit_false = Literal::Bool(false);
-        
+
         assert!(!lit_true.is_numeric());
         assert!(lit_true.is_bool());
         assert_eq!(lit_true.inferred_type(), "bool");
@@ -72,7 +74,7 @@ mod tests {
     fn test_literal_display() {
         let int_lit = Literal::Numeric(NumericLiteral::Integer(42));
         let bool_lit = Literal::Bool(true);
-        
+
         assert_eq!(int_lit.to_string(), "42");
         assert_eq!(bool_lit.to_string(), "true");
     }
