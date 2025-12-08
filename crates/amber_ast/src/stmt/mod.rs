@@ -1,7 +1,7 @@
 mod bindings;
 mod control;
 
-pub use bindings::LetBinding;
+pub use bindings::VariableBinding;
 pub use control::{IfElse, WhileLoop};
 use crate::{Expression, Function, ImplBlock, StructDef};
 
@@ -14,7 +14,7 @@ pub enum Modifier {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
-    LetBinding(LetBinding),
+    Binding(VariableBinding),
     IfElse(IfElse),
     WhileLoop(WhileLoop),
     ExprStatement(Expression),

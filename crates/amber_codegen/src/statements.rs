@@ -13,13 +13,13 @@ pub fn emit_program(buffer: &mut CodeBuffer, program: &amber_ast::Program) -> Re
 
 pub fn emit_statement(buffer: &mut CodeBuffer, statement: &Statement) -> Result<(), CodegenError> {
     match statement {
-        Statement::LetBinding(lb) => emit_let_binding(
+        Statement::Binding(binding) => emit_variable_binding(
             buffer,
-            lb.modifier.clone(),
-            lb.is_mutable,
-            &lb.name,
-            lb.ty.as_ref(),
-            lb.value.as_ref(),
+            binding.modifier.clone(),
+            binding.is_mutable,
+            &binding.name,
+            binding.ty.as_ref(),
+            binding.value.as_ref(),
         ),
         Statement::ExprStatement(expr) => emit_expr_statement(buffer, expr),
         Statement::Struct(def) => crate::declarations::emit_struct(buffer, def),
@@ -34,7 +34,7 @@ pub fn emit_statement(buffer: &mut CodeBuffer, statement: &Statement) -> Result<
     }
 }
 
-pub fn emit_let_binding(
+pub fn emit_variable_binding(
     buffer: &mut CodeBuffer,
     modifier: Option<Modifier>,
     is_mutable: bool,
@@ -95,13 +95,13 @@ pub fn emit_block_statement(
     indent: usize,
 ) -> Result<(), CodegenError> {
     match statement {
-        Statement::LetBinding(lb) => {
+        Statement::Binding(binding) => {
             let line = render_let_binding_line(
-                lb.modifier.clone(),
-                lb.is_mutable,
-                &lb.name,
-                lb.ty.as_ref(),
-                lb.value.as_ref(),
+                binding.modifier.clone(),
+                binding.is_mutable,
+                &binding.name,
+                binding.ty.as_ref(),
+                binding.value.as_ref(),
             )?;
             buffer.push_indented_line(indent, &line);
             Ok(())

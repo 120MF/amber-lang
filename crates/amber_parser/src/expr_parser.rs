@@ -154,7 +154,7 @@ mod tests {
         let code = "const a = 1 + 2 * 3;";
         let program = build_ast(code).unwrap();
 
-        if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
+        if let amber_ast::Statement::Binding(binding) = &program.statements[0] {
             if let Some(expr) = &binding.value {
                 if let Expression::BinaryExpr { left, op, right } = expr {
                     assert_eq!(*op, BinaryOp::Add);
@@ -188,7 +188,7 @@ mod tests {
         let code = "const a = (1 + 2) * 3;";
         let program = build_ast(code).unwrap();
 
-        if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
+        if let amber_ast::Statement::Binding(binding) = &program.statements[0] {
             if let Some(expr) = &binding.value {
                 if let Expression::BinaryExpr { op, .. } = expr {
                     assert_eq!(*op, BinaryOp::Mul);
@@ -204,7 +204,7 @@ mod tests {
         let code = "const flag: bool = true;";
         let program = build_ast(code).unwrap();
 
-        if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
+        if let amber_ast::Statement::Binding(binding) = &program.statements[0] {
             assert_eq!(binding.name, "flag");
             if let Some(Expression::Literal(Literal::Bool(b))) = &binding.value {
                 assert!(*b);
@@ -212,7 +212,7 @@ mod tests {
                 panic!("Expected bool literal");
             }
         } else {
-            panic!("Expected LetBinding");
+            panic!("Expected Binding");
         }
     }
 
@@ -221,14 +221,14 @@ mod tests {
         let code = "const active = false;";
         let program = build_ast(code).unwrap();
 
-        if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
+        if let amber_ast::Statement::Binding(binding) = &program.statements[0] {
             if let Some(Expression::Literal(Literal::Bool(b))) = &binding.value {
                 assert!(!*b);
             } else {
                 panic!("Expected bool literal false");
             }
         } else {
-            panic!("Expected LetBinding");
+            panic!("Expected Binding");
         }
     }
 
@@ -237,14 +237,14 @@ mod tests {
         let code = "const character = 'a';";
         let program = build_ast(code).unwrap();
 
-        if let amber_ast::Statement::LetBinding(binding) = &program.statements[0] {
+        if let amber_ast::Statement::Binding(binding) = &program.statements[0] {
             if let Some(Expression::Literal(Literal::Char(c))) = &binding.value {
                 assert_eq!(*c, 'a');
             } else {
                 panic!("Expected char literal 'c'")
             }
         } else {
-            panic!("Expected LetBinding");
+            panic!("Expected Binding");
         }
     }
 }

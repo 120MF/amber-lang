@@ -37,7 +37,7 @@ if_stmt = { "if" ~ expr ~ block ~ ("else" ~ ( if_stmt | block ))?}
 while_stmt = { "while" ~ expr ~ block }
 
 type_def = { builtin_type | ident }
-builtin_type = { "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64" | "bool" | "char" }
+builtin_type = { "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64" | "bool" | "char" | "void" }
 
 atom = { float_lit | int_lit | bool_lit | char_lit | ident | "(" ~ expr ~ ")" }
 

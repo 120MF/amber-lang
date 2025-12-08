@@ -28,11 +28,12 @@ pub fn type_to_c(ty: &Type) -> String {
         Type::F32 => "float".into(),
         Type::F64 => "double".into(),
         Type::Bool => "bool".into(),
+        Type::Char => "char".into(),
+        Type::Void => "void".into(),
         Type::Custom(name) => name.clone(),
     }
 }
 
 pub fn type_to_c_opt(ty: Option<&Type>) -> String {
-    ty.map(type_to_c)
-        .unwrap_or_else(|| "void".into())
+    ty.map(type_to_c).unwrap_or_else(|| "void".into())
 }

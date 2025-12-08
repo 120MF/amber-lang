@@ -11,6 +11,8 @@ pub enum Type {
     F32,
     F64,
     Bool,
+    Char,
+    Void,
     Custom(String),
 }
 

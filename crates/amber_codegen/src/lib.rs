@@ -113,7 +113,7 @@ mod tests {
                         },
                     ],
                 }),
-                Statement::LetBinding(amber_ast::LetBinding {
+                Statement::Binding(amber_ast::VariableBinding {
                     modifier: Some(Modifier::Comptime),
                     is_mutable: false,
                     name: "BAUD".to_string(),

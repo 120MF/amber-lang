@@ -1,6 +1,6 @@
 use pest::iterators::Pair;
 
-use amber_ast::{Block, IfElse, LetBinding, Modifier, Statement, WhileLoop};
+use amber_ast::{Block, IfElse, VariableBinding, Modifier, Statement, WhileLoop};
 
 use crate::Rule;
 use crate::expr_parser::parse_expr;
@@ -40,7 +40,7 @@ pub fn parse_declaration(pair: Pair<Rule>) -> Statement {
         }
     }
 
-    Statement::LetBinding(LetBinding {
+    Statement::Binding(VariableBinding {
         modifier,
         is_mutable,
         name,
@@ -175,7 +175,7 @@ mod tests {
         let code = "comptime const baud = 9600;";
         let program = build_ast(code).unwrap();
 
-        if let Statement::LetBinding(binding) = &program.statements[0] {
+        if let Statement::Binding(binding) = &program.statements[0] {
             assert_eq!(binding.modifier, Some(Modifier::Comptime));
             assert!(!binding.is_mutable);
             assert_eq!(binding.name, "baud");
@@ -186,7 +186,7 @@ mod tests {
                 panic!("Expected integer value");
             }
         } else {
-            panic!("Expected LetBinding");
+            panic!("Expected Binding");
         }
     }
 

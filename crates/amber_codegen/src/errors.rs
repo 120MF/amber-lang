@@ -2,7 +2,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum CodegenError {
-    #[error("let binding '{name}' requires an explicit type")]
+    #[error("binding '{name}' requires an explicit type")]
     MissingType { name: String },
     #[error("function '{name}' is missing a body")]
     MissingFunctionBody { name: String },

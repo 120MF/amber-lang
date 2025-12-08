@@ -16,6 +16,8 @@ pub fn parse_type(pair: Pair<Rule>) -> Type {
         "i32" => Type::I32,
         "i64" => Type::I64,
         "bool" => Type::Bool,
+        "char" => Type::Char,
+        "void" => Type::Void,
         other => Type::Custom(other.to_string()),
     }
 }
