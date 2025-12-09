@@ -32,7 +32,7 @@ declaration = {
 modifier = { kw_comptime | kw_runtime }
 keyword = { kw_const | kw_var }
 
-assignment = { ident ~ assign ~ expr ~ semi }
+assignment = { expr ~ assign ~ expr ~ semi }
 expr_stmt = { expr ~ semi }
 return_stmt = { kw_return ~ expr? ~ semi }
 
@@ -57,7 +57,7 @@ impl_block = { kw_impl ~ ident ~ lbrace ~ function_def* ~ rbrace }
 
 // ============================================================
 //  3. EXPRESSIONS (表达式 - 配合 Pratt Parser 保持扁平)
-// ============================================================ 
+// ============================================================
 // Top-level expression
 expr = { ternary_expr }
 

@@ -2,8 +2,7 @@ use crate::buffer::CodeBuffer;
 use crate::errors::CodegenError;
 use crate::expression::render_expr;
 use crate::types::{binding_qualifier, type_to_c};
-use amber_ast::{Block, Expression, Modifier, Statement, Type};
-
+use amber_ast::{Block, Expression, Statement, Type};
 pub fn emit_program(
     buffer: &mut CodeBuffer,
     program: &amber_ast::Program,
@@ -18,7 +17,6 @@ pub fn emit_statement(buffer: &mut CodeBuffer, statement: &Statement) -> Result<
     match statement {
         Statement::Binding(binding) => emit_variable_binding(
             buffer,
-            binding.modifier.clone(),
             binding.is_mutable,
             &binding.name,
             binding.ty.as_ref(),
@@ -39,20 +37,18 @@ pub fn emit_statement(buffer: &mut CodeBuffer, statement: &Statement) -> Result<
 
 pub fn emit_variable_binding(
     buffer: &mut CodeBuffer,
-    modifier: Option<Modifier>,
     is_mutable: bool,
     name: &str,
     ty: Option<&Type>,
     value: Option<&Expression>,
 ) -> Result<(), CodegenError> {
-    let line = render_variable_binding_line(modifier, is_mutable, name, ty, value)?;
+    let line = render_variable_binding_line(is_mutable, name, ty, value)?;
     buffer.push_line(&line);
     buffer.push_line("");
     Ok(())
 }
 
 pub fn render_variable_binding_line(
-    modifier: Option<Modifier>,
     is_mutable: bool,
     name: &str,
     ty: Option<&Type>,
@@ -63,7 +59,7 @@ pub fn render_variable_binding_line(
     })?;
     let mut line;
     match ty {
-        Type::Pointer { inner, is_mut } => {
+        Type::Pointer { inner: _inner, is_mut } => {
             let data_qualifier = if *is_mut { "" } else { "const " };
             let bind_qualifier = if is_mutable { "" } else { "const " };
             line = format!("{}{} {}", data_qualifier, type_to_c(ty), bind_qualifier);
@@ -113,7 +109,6 @@ pub fn emit_block_statement(
     match statement {
         Statement::Binding(binding) => {
             let line = render_variable_binding_line(
-                binding.modifier.clone(),
                 binding.is_mutable,
                 &binding.name,
                 binding.ty.as_ref(),
@@ -128,7 +123,7 @@ pub fn emit_block_statement(
             Ok(())
         }
         Statement::Assignment { target, value } => {
-            let line = format!("{} = {};", target, render_expr(value));
+            let line = format!("{} = {};", render_expr(target), render_expr(value));
             buffer.push_indented_line(indent, &line);
             Ok(())
         }

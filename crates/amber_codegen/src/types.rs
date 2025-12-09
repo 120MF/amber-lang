@@ -1,4 +1,4 @@
-use amber_ast::{Modifier, Type};
+use amber_ast::Type;
 use std::ops::Deref;
 
 pub fn binding_qualifier(is_mutable: bool) -> String {
@@ -16,7 +16,7 @@ pub fn binding_qualifier(is_mutable: bool) -> String {
 pub fn type_to_c(ty: &Type) -> String {
     match ty {
         Type::Named(name) => name.clone(),
-        Type::Pointer { inner, is_mut } => {
+        Type::Pointer { inner, is_mut: _is_mut } => {
             let inner_type = type_to_c(inner.deref());
             format!("{}*", inner_type)
         }

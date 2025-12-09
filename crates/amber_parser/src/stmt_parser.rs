@@ -52,11 +52,10 @@ pub fn parse_declaration(pair: Pair<Rule>) -> Statement {
 /// Parse an assignment statement
 pub fn parse_assignment(pair: Pair<Rule>) -> Statement {
     let mut inner = pair.into_inner();
-    let target = inner
+    let target_pair = inner
         .next()
-        .expect("assignment must have a target")
-        .as_str()
-        .to_string();
+        .expect("assignment must have a target");
+    let target = parse_expr(target_pair);
     let expr_pair = inner.next().expect("assignment must have value");
     Statement::Assignment {
         target,

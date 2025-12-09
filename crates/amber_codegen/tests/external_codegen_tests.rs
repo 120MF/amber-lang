@@ -98,4 +98,5 @@ fn test_pointer() {
     assert!(result.contains("uint8_t* const p1;"));
     assert!(result.contains("uint8_t* p2;"));
     assert!(result.contains("const uint8_t* p3;"));
+    assert!(result.contains("(*p3) = 1;"))
 }

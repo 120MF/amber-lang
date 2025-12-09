@@ -75,6 +75,7 @@ fn parse_unary_op(op: Pair<Rule>) -> UnaryOp {
         Rule::prefix_bitnot => UnaryOp::BitNot,
         Rule::prefix_preinc => UnaryOp::PreInc,
         Rule::prefix_predec => UnaryOp::PreDec,
+        Rule::prefix_deref => UnaryOp::Deref,
         _ => panic!("Unexpected unary operator: {:?}", op.as_rule()),
     }
 }
