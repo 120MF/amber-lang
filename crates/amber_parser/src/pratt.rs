@@ -35,15 +35,16 @@ lazy_static! {
             .op(Op::infix(Rule::mul_op, Assoc::Left)
                 | Op::infix(Rule::div_op, Assoc::Left)
                 | Op::infix(Rule::mod_op, Assoc::Left))
-            // Unary prefix operators (highest precedence)
+            // Unary prefix operators
             .op(Op::prefix(Rule::prefix_minus)
                 | Op::prefix(Rule::prefix_plus)
                 | Op::prefix(Rule::prefix_not)
                 | Op::prefix(Rule::prefix_bitnot)
                 | Op::prefix(Rule::prefix_preinc)
                 | Op::prefix(Rule::prefix_predec)
-                | Op::prefix(Rule::prefix_deref)
-        )
+                | Op::prefix(Rule::prefix_deref))
+            // Unary postfix operators (highest precedence)
+            .op(Op::postfix(Rule::postfix_index))
     };
 }
 

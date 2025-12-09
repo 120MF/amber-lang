@@ -16,6 +16,7 @@ pub enum Type {
     Named(String),
 
     Pointer { inner: Box<Type>, is_mut: bool },
+    Array { inner: Box<Type>, len: usize },
 }
 
 impl Type {

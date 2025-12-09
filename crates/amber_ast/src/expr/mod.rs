@@ -4,7 +4,7 @@ mod unary;
 
 pub use binary::BinaryOp;
 pub use literal::{Literal, NumericLiteral};
-pub use unary::UnaryOp;
+pub use unary::{UnaryOp, Prefix, Postfix};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {

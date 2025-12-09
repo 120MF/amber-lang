@@ -1,5 +1,4 @@
-use amber_ast::{BinaryOp, Expression, Literal, NumericLiteral, UnaryOp};
-
+use amber_ast::{BinaryOp, Expression, Literal, NumericLiteral, Postfix, UnaryOp, Prefix};
 pub fn render_expr(expr: &Expression) -> String {
     match expr {
         Expression::Literal(lit) => render_literal(lit),
@@ -13,7 +12,7 @@ pub fn render_expr(expr: &Expression) -> String {
             )
         }
         Expression::UnaryExpr { op, expr } => {
-            format!("({}{})", render_unary_op(op), render_expr(expr))
+            format!("({})", render_unary_op(op, expr))
         }
         Expression::TernaryExpr {
             condition,
@@ -58,15 +57,24 @@ pub fn render_numeric_literal(lit: &NumericLiteral) -> String {
     }
 }
 
-pub fn render_unary_op(op: &UnaryOp) -> &'static str {
+pub fn render_unary_op(op: &UnaryOp, expression: &Expression) -> String {
     match op {
-        UnaryOp::Neg => "-",
-        UnaryOp::Pos => "+",
-        UnaryOp::Not => "!",
-        UnaryOp::BitNot => "~",
-        UnaryOp::PreInc => "++",
-        UnaryOp::PreDec => "--",
-        UnaryOp::Deref => "*",
+        UnaryOp::PrefixOp(pre_op) => {
+            let operator = match pre_op {
+                Prefix::Neg => "-",
+                Prefix::Pos => "+",
+                Prefix::Not => "!",
+                Prefix::BitNot => "~",
+                Prefix::PreInc => "++",
+                Prefix::PreDec => "--",
+                Prefix::Deref => "*",
+            };
+            format!("{}{}", operator, render_expr(expression))
+        }
+        UnaryOp::PostfixOp(post_op) => {
+            let operator = match post_op { Postfix::Index { index } => { format!("[{}]", render_expr(index)) } };
+            format!("{}{}", render_expr(expression), operator)
+        }
     }
 }
 

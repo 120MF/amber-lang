@@ -69,7 +69,7 @@ ternary_expr = { math_expr ~ (question ~ expr ~ colon ~ expr)? }
 math_expr = { unary ~ (binary_op ~ unary)* }
 
 // Unary - prefix operators followed by atom
-unary = { prefix_op* ~ atom }
+unary = { prefix_op* ~ atom ~ postfix_op* }
 
 atom = { float_lit | int_lit | bool_lit | char_lit | ident | lparen ~ expr ~ rparen }
 
@@ -83,6 +83,9 @@ prefix_bitnot = { tilde }
 prefix_preinc = { increment }
 prefix_predec = { decrement }
 prefix_deref = { star }
+
+// Unary postfix operators
+postfix_index = { lbracket ~ expr ~ rbracket }
 
 // Arithmetic operators
 add_op = { plus }
@@ -111,6 +114,7 @@ and_op = { and }
 or_op = { or }
 
 prefix_op = _{ prefix_minus | prefix_plus | prefix_not | prefix_bitnot | prefix_preinc | prefix_predec | prefix_deref }
+postfix_op = _{ postfix_index }
 binary_op =  _ { or_op | and_op | le_op | ge_op | eq_op | ne_op | shl_op | shr_op | bitwise_or | bitwise_xor | bitwise_and | lt_op | gt_op | add_op | sub_op | mul_op | div_op | mod_op }
 
 // Ternary operators
@@ -119,9 +123,12 @@ question = { question_mark }
 // ============================================================
 //  4. TYPES (类型系统)
 // ============================================================
-type_def = { ptr_type | builtin_type | ident }
+type_def = { ptr_type | array_type | builtin_type | ident }
 
 ptr_type = { star ~ kw_mut? ~ type_def }
+
+array_type = { lbracket ~ expr ~ rbracket ~ type_def }
+
 builtin_type = {
     type_u8 | type_u16 | type_u32 | type_u64 |
     type_i8 | type_i16 | type_i32 | type_i64 |
@@ -141,6 +148,8 @@ lparen = _{ "(" }
 rparen = _{ ")" }
 lbrace = _{ "{" }
 rbrace = _{ "}" }
+lbracket = _{ "[" }
+rbracket = _{ "]" }
 comma = _{ "," }
 semi = _{ ";" }
 colon = _{ ":" }

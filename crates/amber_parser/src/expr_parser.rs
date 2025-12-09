@@ -1,7 +1,7 @@
 use pest::iterators::Pair;
 
-use amber_ast::{BinaryOp, Expression, Literal, NumericLiteral, UnaryOp};
-
+use amber_ast::{BinaryOp, Expression, Literal, NumericLiteral, Prefix, UnaryOp};
+use amber_ast::Postfix::Index;
 use crate::Rule;
 use crate::pratt::expr_parser;
 
@@ -69,13 +69,13 @@ fn parse_binary_op(op: Pair<Rule>) -> BinaryOp {
 /// Parse unary operator
 fn parse_unary_op(op: Pair<Rule>) -> UnaryOp {
     match op.as_rule() {
-        Rule::prefix_minus => UnaryOp::Neg,
-        Rule::prefix_plus => UnaryOp::Pos,
-        Rule::prefix_not => UnaryOp::Not,
-        Rule::prefix_bitnot => UnaryOp::BitNot,
-        Rule::prefix_preinc => UnaryOp::PreInc,
-        Rule::prefix_predec => UnaryOp::PreDec,
-        Rule::prefix_deref => UnaryOp::Deref,
+        Rule::prefix_minus => UnaryOp::PrefixOp(Prefix::Neg),
+        Rule::prefix_plus => UnaryOp::PrefixOp(Prefix::Pos),
+        Rule::prefix_not => UnaryOp::PrefixOp(Prefix::Not),
+        Rule::prefix_bitnot => UnaryOp::PrefixOp(Prefix::BitNot),
+        Rule::prefix_preinc => UnaryOp::PrefixOp(Prefix::PreInc),
+        Rule::prefix_predec => UnaryOp::PrefixOp(Prefix::PreDec),
+        Rule::prefix_deref => UnaryOp::PrefixOp(Prefix::Deref),
         _ => panic!("Unexpected unary operator: {:?}", op.as_rule()),
     }
 }
@@ -99,11 +99,11 @@ pub fn parse_expr(pair: Pair<Rule>) -> Expression {
                         let else_expr =
                             parse_expr(inner.next().expect("ternary: missing else expression"));
 
-                        return Expression::TernaryExpr {
+                        Expression::TernaryExpr {
                             condition: Box::new(condition),
                             then_expr: Box::new(then_expr),
                             else_expr: Box::new(else_expr),
-                        };
+                        }
                     }
                     _ => {
                         // No ternary operator, just return the condition
@@ -131,22 +131,6 @@ fn parse_math_expr(pair: Pair<Rule>) -> Expression {
         return Expression::Literal(Literal::Numeric(NumericLiteral::Integer(0))); // fallback
     }
 
-    // If there's only one pair and it's a unary expression, we need to process it differently
-    // because the pratt parser expects infix operations
-    if pairs.len() == 1 {
-        let single_pair = &pairs[0];
-        match single_pair.as_rule() {
-            Rule::unary => {
-                // Handle unary expressions directly here instead of going through Pratt parser
-                return parse_unary_expr(single_pair.clone());
-            }
-            _ => {
-                // For other single-pair cases, treat as primary
-                return parse_primary(single_pair.clone());
-            }
-        }
-    }
-
     expr_parser()
         .map_primary(|primary| parse_primary(primary))
         .map_prefix(|op, rhs| {
@@ -162,6 +146,16 @@ fn parse_math_expr(pair: Pair<Rule>) -> Expression {
                 left: Box::new(lhs),
                 op: binary_op,
                 right: Box::new(rhs),
+            }
+        })
+        .map_postfix(|lhs, op| {
+            match op.as_rule() {
+                Rule::postfix_index => {
+                    let inner_expr_pair = op.into_inner().next().unwrap();
+                    let inner_expr = parse_expr(inner_expr_pair);
+                    Expression::UnaryExpr { op: UnaryOp::PostfixOp(Index { index: Box::new(inner_expr) }), expr: Box::new(lhs) }
+                }
+                _ => unreachable!("Unexpected postfix operator: {:?}", op.as_rule())
             }
         })
         .parse(pairs.into_iter())
