@@ -1,12 +1,9 @@
 use amber_ast::{Modifier, Type};
 use std::ops::Deref;
 
-pub fn binding_qualifier(modifier: Option<Modifier>, is_mutable: bool) -> String {
+pub fn binding_qualifier(is_mutable: bool) -> String {
     let mut flags = Vec::new();
-    if matches!(modifier, Some(Modifier::Comptime)) {
-        flags.push("const");
-    }
-    if !is_mutable && !flags.contains(&"const") {
+    if !is_mutable {
         flags.push("const");
     }
     if flags.is_empty() {
@@ -17,6 +14,17 @@ pub fn binding_qualifier(modifier: Option<Modifier>, is_mutable: bool) -> String
 }
 
 pub fn type_to_c(ty: &Type) -> String {
+    match ty {
+        Type::Named(name) => name.clone(),
+        Type::Pointer { inner, is_mut } => {
+            let inner_type = type_to_c(inner.deref());
+            format!("{}*", inner_type)
+        }
+        _ => builtin_type_to_c(ty),
+    }
+}
+
+pub fn builtin_type_to_c(ty: &Type) -> String {
     match ty {
         Type::U8 => "uint8_t".into(),
         Type::I8 => "int8_t".into(),
@@ -31,15 +39,6 @@ pub fn type_to_c(ty: &Type) -> String {
         Type::Bool => "bool".into(),
         Type::Char => "char".into(),
         Type::Void => "void".into(),
-        Type::Named(name) => name.clone(),
-        Type::Pointer { inner, is_mut } => {
-            let modifier = if *is_mut { "const" } else { "" };
-            let inner_type = type_to_c(inner.deref());
-            format!("{}* {}", inner_type, modifier)
-        }
+        _ => panic!("{:?} is not a  builtin type", ty),
     }
-}
-
-pub fn type_to_c_opt(ty: Option<&Type>) -> String {
-    ty.map(type_to_c).unwrap_or_else(|| "void".into())
 }

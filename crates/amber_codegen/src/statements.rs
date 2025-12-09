@@ -1,10 +1,13 @@
-use amber_ast::{Block, Expression, Modifier, Statement, Type};
 use crate::buffer::CodeBuffer;
 use crate::errors::CodegenError;
 use crate::expression::render_expr;
 use crate::types::{binding_qualifier, type_to_c};
+use amber_ast::{Block, Expression, Modifier, Statement, Type};
 
-pub fn emit_program(buffer: &mut CodeBuffer, program: &amber_ast::Program) -> Result<(), CodegenError> {
+pub fn emit_program(
+    buffer: &mut CodeBuffer,
+    program: &amber_ast::Program,
+) -> Result<(), CodegenError> {
     for statement in &program.statements {
         emit_statement(buffer, statement)?;
     }
@@ -42,13 +45,13 @@ pub fn emit_variable_binding(
     ty: Option<&Type>,
     value: Option<&Expression>,
 ) -> Result<(), CodegenError> {
-    let line = render_let_binding_line(modifier, is_mutable, name, ty, value)?;
+    let line = render_variable_binding_line(modifier, is_mutable, name, ty, value)?;
     buffer.push_line(&line);
     buffer.push_line("");
     Ok(())
 }
 
-pub fn render_let_binding_line(
+pub fn render_variable_binding_line(
     modifier: Option<Modifier>,
     is_mutable: bool,
     name: &str,
@@ -58,8 +61,20 @@ pub fn render_let_binding_line(
     let ty = ty.ok_or_else(|| CodegenError::MissingType {
         name: name.to_string(),
     })?;
-    let qualifier = binding_qualifier(modifier, is_mutable);
-    let mut line = format!("{}{} {}", qualifier, type_to_c(ty), name);
+    let mut line;
+    match ty {
+        Type::Pointer { inner, is_mut } => {
+            let data_qualifier = if *is_mut { "" } else { "const " };
+            let bind_qualifier = if is_mutable { "" } else { "const " };
+            line = format!("{}{} {}", data_qualifier, type_to_c(ty), bind_qualifier);
+        }
+        _ => {
+            let qualifier = binding_qualifier(is_mutable);
+            line = format!("{}{} ", qualifier, type_to_c(ty));
+        }
+    }
+    line.push_str(name);
+
     if let Some(expr) = value {
         line.push_str(" = ");
         line.push_str(&render_expr(expr));
@@ -68,10 +83,7 @@ pub fn render_let_binding_line(
     Ok(line)
 }
 
-pub fn emit_expr_statement(
-    buffer: &mut CodeBuffer,
-    expr: &Expression,
-) -> Result<(), CodegenError> {
+pub fn emit_expr_statement(buffer: &mut CodeBuffer, expr: &Expression) -> Result<(), CodegenError> {
     let line = render_expr_statement_line(expr);
     buffer.push_line(&line);
     buffer.push_line("");
@@ -82,7 +94,11 @@ pub fn render_expr_statement_line(expr: &Expression) -> String {
     format!("{};", render_expr(expr))
 }
 
-pub fn emit_block(buffer: &mut CodeBuffer, block: &Block, indent: usize) -> Result<(), CodegenError> {
+pub fn emit_block(
+    buffer: &mut CodeBuffer,
+    block: &Block,
+    indent: usize,
+) -> Result<(), CodegenError> {
     for statement in &block.statements {
         emit_block_statement(buffer, statement, indent)?;
     }
@@ -96,7 +112,7 @@ pub fn emit_block_statement(
 ) -> Result<(), CodegenError> {
     match statement {
         Statement::Binding(binding) => {
-            let line = render_let_binding_line(
+            let line = render_variable_binding_line(
                 binding.modifier.clone(),
                 binding.is_mutable,
                 &binding.name,

@@ -1,8 +1,8 @@
-use amber_ast::{Function, ImplBlock, Param, StructDef, StructField};
 use crate::buffer::CodeBuffer;
 use crate::errors::CodegenError;
-use crate::types::type_to_c;
 use crate::statements::emit_block;
+use crate::types::type_to_c;
+use amber_ast::{Function, ImplBlock, Param, StructDef, StructField};
 
 pub fn emit_struct(buffer: &mut CodeBuffer, def: &StructDef) -> Result<(), CodegenError> {
     buffer.push_line("typedef struct {");
@@ -81,10 +81,7 @@ pub fn function_signature(
     Ok(format!("{} {}({})", return_type, func_name, params))
 }
 
-pub fn format_params(
-    params: &[Param],
-    impl_target: Option<&str>,
-) -> Result<String, CodegenError> {
+pub fn format_params(params: &[Param], impl_target: Option<&str>) -> Result<String, CodegenError> {
     let mut parts = Vec::new();
     let mut self_count = 0;
 

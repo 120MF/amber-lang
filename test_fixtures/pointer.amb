@@ -1,0 +1,6 @@
+// pointer example
+fn main() {
+    const p1: *mut u8;
+    var p2: *mut u8;
+    var p3: *u8;
+}
