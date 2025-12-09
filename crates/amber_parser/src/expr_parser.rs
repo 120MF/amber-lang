@@ -123,7 +123,29 @@ pub fn parse_expr(pair: Pair<Rule>) -> Expression {
 
 /// Parse a math expression using global Pratt parser (no ternary at this level)
 fn parse_math_expr(pair: Pair<Rule>) -> Expression {
-    let pairs = pair.into_inner();
+    let pairs: Vec<_> = pair.into_inner().collect();
+
+    // If there are no pairs to parse with Pratt parser, return a simple expression
+    if pairs.is_empty() {
+        return Expression::Literal(Literal::Numeric(NumericLiteral::Integer(0))); // fallback
+    }
+
+    // If there's only one pair and it's a unary expression, we need to process it differently
+    // because the pratt parser expects infix operations
+    if pairs.len() == 1 {
+        let single_pair = &pairs[0];
+        match single_pair.as_rule() {
+            Rule::unary => {
+                // Handle unary expressions directly here instead of going through Pratt parser
+                return parse_unary_expr(single_pair.clone());
+            }
+            _ => {
+                // For other single-pair cases, treat as primary
+                return parse_primary(single_pair.clone());
+            }
+        }
+    }
+
     expr_parser()
         .map_primary(|primary| parse_primary(primary))
         .map_prefix(|op, rhs| {
@@ -141,7 +163,47 @@ fn parse_math_expr(pair: Pair<Rule>) -> Expression {
                 right: Box::new(rhs),
             }
         })
-        .parse(pairs)
+        .parse(pairs.into_iter())
+}
+
+/// Parse a unary expression (prefix operators followed by an operand)
+fn parse_unary_expr(pair: Pair<Rule>) -> Expression {
+    let inner: Vec<_> = pair.into_inner().collect();
+
+    // Check if there are prefix operators followed by an atom
+    let mut prefix_ops = Vec::new();
+    let mut remaining = Vec::new();
+
+    for p in inner {
+        match p.as_rule() {
+            Rule::prefix_minus | Rule::prefix_plus | Rule::prefix_not |
+            Rule::prefix_bitnot | Rule::prefix_preinc | Rule::prefix_predec |
+            Rule::prefix_deref => {
+                prefix_ops.push(p);
+            }
+            _ => {
+                remaining.push(p);
+            }
+        }
+    }
+
+    // Process any remaining items as the base expression
+    if remaining.len() != 1 {
+        panic!("Expected exactly one operand for unary expression, got {}", remaining.len());
+    }
+
+    let mut base_expr = parse_primary(remaining[0].clone());
+
+    // Apply prefix operators from right to left
+    for op_pair in prefix_ops.iter().rev() {
+        let unary_op = parse_unary_op(op_pair.clone());
+        base_expr = Expression::UnaryExpr {
+            op: unary_op,
+            expr: Box::new(base_expr),
+        };
+    }
+
+    base_expr
 }
 
 #[cfg(test)]

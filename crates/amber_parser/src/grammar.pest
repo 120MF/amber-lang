@@ -1,8 +1,13 @@
-WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
-COMMENT = _{ "//" ~ (!"\n" ~ ANY) * }
-
+// ============================================================
+//  1. PROGRAM ROOT & WHITESPACE
+// ============================================================
 program = { SOI ~ statement* ~ EOI }
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
 
+// ============================================================
+//  2. STATEMENTS (语句)
+// ============================================================
 statement = {
     declaration |
     assignment |
@@ -19,75 +24,40 @@ declaration = {
     modifier? ~              // comptime/runtime
     keyword ~                // let/var
     ident ~                  // variable name
-    (":" ~ type_def)? ~      // optional type def
-    ("=" ~ expr)? ~          // optional init value
-    ";"
+    (colon ~ type_def)? ~      // optional type def
+    (assign ~ expr)? ~          // optional init value
+    semi
 }
 
-modifier = { "comptime" | "runtime" }
-keyword = { "const" | "var" }
+modifier = { kw_comptime | kw_runtime }
+keyword = { kw_const | kw_var }
 
-assignment = { ident ~ "=" ~ expr ~ ";" }
-expr_stmt = { expr ~ ";" }
-return_stmt = { "return" ~ expr? ~ ";" }
+assignment = { ident ~ assign ~ expr ~ semi }
+expr_stmt = { expr ~ semi }
+return_stmt = { kw_return ~ expr? ~ semi }
 
 // Control Statement
+if_stmt = { kw_if ~ expr ~ block ~ (kw_else ~ ( if_stmt | block ))? }
+while_stmt = { kw_while ~ expr ~ block }
 
-if_stmt = { "if" ~ expr ~ block ~ ("else" ~ ( if_stmt | block ))?}
-while_stmt = { "while" ~ expr ~ block }
+function_def = { extern_modifier? ~ kw_fn ~ ident ~ parameter_list ~ return_type? ~ function_body }
+extern_modifier = { kw_extern }
+parameter_list = { lparen ~ (param ~ (comma ~ param)*)? ~ rparen }
+param = { param_self | param_typed }
+param_self = { kw_self }
+param_typed = { ident ~ colon ~ type_def }
+return_type = { arrow ~ type_def }
+function_body = { block | semi }
 
-type_def = { ptr_type | builtin_type | ident }
+struct_def = { kw_struct ~ ident ~ lbrace ~ struct_fields? ~ rbrace }
+struct_fields = { struct_field ~ (comma ~ struct_field)* ~ comma? }
+struct_field = { ident ~ colon ~ type_def }
 
-ptr_type = { "*" ~ "mut"? ~ type_def }
-builtin_type = { "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64" | "bool" | "char" | "void" }
+impl_block = { kw_impl ~ ident ~ lbrace ~ function_def* ~ rbrace }
 
-atom = { float_lit | int_lit | bool_lit | char_lit | ident | "(" ~ expr ~ ")" }
-
-
-// Operator
-
-// Unary prefix operators
-prefix_minus = { "-" }
-prefix_plus = { "+" }
-prefix_not = { "!" }
-prefix_bitnot = { "~" }
-prefix_preinc = { "++" }
-prefix_predec = { "--" }
-prefix_deref = { "*" }
-
-// Arithmetic operators
-add_op = { "+" }
-sub_op = { "-" }
-mul_op = { "*" }
-div_op = { "/" }
-mod_op = { "%" }
-
-// Bitwise operators
-bitwise_and = { "&" }
-bitwise_or = { "|" }
-bitwise_xor = { "^" }
-shl_op = { "<<" }
-shr_op = { ">>" }
-
-// Comparison operators
-le_op = { "<=" }
-ge_op = { ">=" }
-eq_op = { "==" }
-ne_op = { "!=" }
-lt_op = { "<" }
-gt_op = { ">" }
-
-// Logical operators
-and_op = { "&&" }
-or_op = { "||" }
-
-prefix_op = _{ prefix_minus | prefix_plus | prefix_not | prefix_bitnot | prefix_preinc | prefix_predec | prefix_deref }
-binary_op =  _ { or_op | and_op | le_op | ge_op | eq_op | ne_op | shl_op | shr_op | bitwise_or | bitwise_xor | bitwise_and | lt_op | gt_op | add_op | sub_op | mul_op | div_op | mod_op}
-
-// Ternary operators
-question = { "?" }
-colon = { ":" }
-
+// ============================================================
+//  3. EXPRESSIONS (表达式 - 配合 Pratt Parser 保持扁平)
+// ============================================================
 // Top-level expression
 expr = { ternary_expr }
 
@@ -101,26 +71,145 @@ math_expr = { unary ~ (binary_op ~ unary)* }
 // Unary - prefix operators followed by atom
 unary = { prefix_op* ~ atom }
 
+atom = { float_lit | int_lit | bool_lit | char_lit | ident | lparen ~ expr ~ rparen }
 
-ident =   @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+// Operator
+
+// Unary prefix operators
+prefix_minus = { minus }
+prefix_plus = { plus }
+prefix_not = { exclamation }
+prefix_bitnot = { tilde }
+prefix_preinc = { increment }
+prefix_predec = { decrement }
+prefix_deref = { star }
+
+// Arithmetic operators
+add_op = { plus }
+sub_op = { minus }
+mul_op = { star }
+div_op = { slash }
+mod_op = { percent }
+
+// Bitwise operators
+bitwise_and = { ampersand }
+bitwise_or = { pipe }
+bitwise_xor = { caret }
+shl_op = { lshift }
+shr_op = { rshift }
+
+// Comparison operators
+le_op = { le }
+ge_op = { ge }
+eq_op = { eq }
+ne_op = { ne }
+lt_op = { lt }
+gt_op = { gt }
+
+// Logical operators
+and_op = { and }
+or_op = { or }
+
+prefix_op = _{ prefix_minus | prefix_plus | prefix_not | prefix_bitnot | prefix_preinc | prefix_predec | prefix_deref }
+binary_op =  _ { or_op | and_op | le_op | ge_op | eq_op | ne_op | shl_op | shr_op | bitwise_or | bitwise_xor | bitwise_and | lt_op | gt_op | add_op | sub_op | mul_op | div_op | mod_op }
+
+// Ternary operators
+question = { question_mark }
+
+// ============================================================
+//  4. TYPES (类型系统)
+// ============================================================
+type_def = { ptr_type | builtin_type | ident }
+
+ptr_type = { star ~ kw_mut? ~ type_def }
+builtin_type = {
+    type_u8 | type_u16 | type_u32 | type_u64 |
+    type_i8 | type_i16 | type_i32 | type_i64 |
+    type_f32 | type_f64 | type_bool | type_char | type_void
+}
+
+// ============================================================
+//  5. BLOCKS & COMPOUND STRUCTURES
+// ============================================================
+block = { lbrace ~ statement* ~ rbrace }
+
+// ============================================================
+//  6. SYMBOLS & KEYWORDS (静默规则 & 关键字提取)
+// ============================================================
+// Symbols (Silent rules)
+lparen = _{ "(" }
+rparen = _{ ")" }
+lbrace = _{ "{" }
+rbrace = _{ "}" }
+comma = _{ "," }
+semi = _{ ";" }
+colon = _{ ":" }
+assign = _{ "=" }
+arrow = _{ "->" }
+plus = _{ "+" }
+minus = _{ "-" }
+slash = _{ "/" }
+percent = _{ "%" }
+ampersand = _{ "&" }
+pipe = _{ "|" }
+caret = _{ "^" }
+tilde = _{ "~" }
+exclamation = _{ "!" }
+increment = _{ "++" }
+decrement = _{ "--" }
+star = _{ "*" }
+lt = _{ "<" }
+gt = _{ ">" }
+le = _{ "<=" }
+ge = _{ ">=" }
+eq = _{ "==" }
+ne = _{ "!=" }
+and = _{ "&&" }
+or = _{ "||" }
+lshift = _{ "<<" }
+rshift = _{ ">>" }
+question_mark = _{ "?" }
+
+// Keywords
+kw_comptime = { "comptime" }
+kw_runtime = { "runtime" }
+kw_const = { "const" }
+kw_var = { "var" }
+kw_return = { "return" }
+kw_if = { "if" }
+kw_else = { "else" }
+kw_while = { "while" }
+kw_fn = { "fn" }
+kw_struct = { "struct" }
+kw_impl = { "impl" }
+kw_extern = { "extern" }
+kw_self = { "self" }
+kw_mut = { "mut" }
+
+// ============================================================
+//  7. LITERALS & IDENTIFIERS (原子规则)
+// ============================================================
+ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 int_lit = @{ ASCII_DIGIT+ }
 float_lit = @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ ~ ( "f" | "d" )? }
-bool_lit = @{ "true" | "false" }
+bool_lit = @{ kw_true | kw_false }
 char_lit = @{ "'" ~ ASCII ~ "'" }
 
-struct_def = { "struct" ~ ident ~ "{" ~ struct_fields? ~ "}" }
-struct_fields = { struct_field ~ ("," ~ struct_field)* ~ ","? }
-struct_field = { ident ~ ":" ~ type_def }
+// Type keywords (atomic to prevent issues with identifier matching)
+type_u8 = @{ "u8" }
+type_u16 = @{ "u16" }
+type_u32 = @{ "u32" }
+type_u64 = @{ "u64" }
+type_i8 = @{ "i8" }
+type_i16 = @{ "i16" }
+type_i32 = @{ "i32" }
+type_i64 = @{ "i64" }
+type_f32 = @{ "f32" }
+type_f64 = @{ "f64" }
+type_bool = @{ "bool" }
+type_char = @{ "char" }
+type_void = @{ "void" }
 
-function_def = { extern_modifier? ~ "fn" ~ ident ~ parameter_list ~ return_type? ~ function_body }
-extern_modifier = { "extern" }
-parameter_list = { "(" ~ (param ~ ("," ~ param)*)? ~ ")" }
-param = { param_self | param_typed }
-param_self = { "self" }
-param_typed = { ident ~ ":" ~ type_def }
-return_type = { "->" ~ type_def }
-function_body = { block | ";" }
-
-block = { "{" ~ (declaration | assignment | expr_stmt | return_stmt | if_stmt | while_stmt)* ~ "}" }
-
-impl_block = { "impl" ~ ident ~ "{" ~ function_def* ~ "}" }
+// Boolean literals as keywords
+kw_true = { "true" }
+kw_false = { "false" }

@@ -1,6 +1,6 @@
 use pest::iterators::Pair;
 
-use amber_ast::{Block, IfElse, VariableBinding, Modifier, Statement, WhileLoop};
+use amber_ast::{Block, IfElse, Modifier, Statement, VariableBinding, WhileLoop};
 
 use crate::Rule;
 use crate::expr_parser::parse_expr;
@@ -114,10 +114,7 @@ pub fn parse_while_stmt(pair: Pair<Rule>) -> Statement {
     let condition = parse_expr(inner.next().expect("while must have condition"));
     let block = parse_block(inner.next().expect("while must have block"));
 
-    Statement::WhileLoop(WhileLoop {
-        condition,
-        block,
-    })
+    Statement::WhileLoop(WhileLoop { condition, block })
 }
 
 /// Parse a block containing statements
