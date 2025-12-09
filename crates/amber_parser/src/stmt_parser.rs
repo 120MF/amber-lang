@@ -81,8 +81,8 @@ pub fn parse_expr_stmt(pair: Pair<Rule>) -> Statement {
 pub fn parse_if_stmt(pair: Pair<Rule>) -> Statement {
     let mut inner = pair.into_inner();
 
-    let condition = parse_expr(inner.next().expect("if must have condition"));
-    let then_block = parse_block(inner.next().expect("if must have then block"));
+    let condition = parse_expr(inner.find(|p|p.as_rule() == Rule::expr).expect("if must have condition"));
+    let then_block = parse_block(inner.find(|p| p.as_rule() == Rule::block).expect("if must have then block"));
 
     let else_block = if let Some(else_part) = inner.next() {
         match else_part.as_rule() {
@@ -111,8 +111,8 @@ pub fn parse_if_stmt(pair: Pair<Rule>) -> Statement {
 pub fn parse_while_stmt(pair: Pair<Rule>) -> Statement {
     let mut inner = pair.into_inner();
 
-    let condition = parse_expr(inner.next().expect("while must have condition"));
-    let block = parse_block(inner.next().expect("while must have block"));
+    let condition = parse_expr(inner.find(|p| p.as_rule() == Rule::expr).expect("while must have condition"));
+    let block = parse_block(inner.find(|p| p.as_rule() == Rule::block).expect("while must have block"));
 
     Statement::WhileLoop(WhileLoop { condition, block })
 }
@@ -128,6 +128,11 @@ pub fn parse_block(pair: Pair<Rule>) -> Block {
 
 /// Parse a statement inside a block (different from top-level statements)
 fn parse_block_statement(pair: Pair<Rule>) -> Statement {
+    let rule = pair.as_rule();
+    if rule == Rule::statement {
+        let inner = pair.into_inner().next().expect("empty statement");
+        return parse_block_statement(inner);
+    }
     match pair.as_rule() {
         Rule::declaration => parse_declaration(pair),
         Rule::assignment => parse_assignment(pair),

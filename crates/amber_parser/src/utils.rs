@@ -18,7 +18,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Type {
             let mutable = pair.as_str().contains("mut");
             let inner_pair = pair
                 .into_inner()
-                .next()
+                .find(|p| p.as_rule()!= Rule::kw_mut)
                 .expect("ptr_type must contain inner");
             let inner_type = parse_type(inner_pair);
             Type::Pointer {

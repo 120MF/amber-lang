@@ -10,7 +10,7 @@ use crate::Rule;
 pub fn parse_struct(pair: Pair<Rule>) -> StructDef {
     let mut inner = pair.into_inner();
     let name = inner
-        .next()
+        .find(|p| p.as_rule() == Rule::ident)
         .expect("struct must have a name")
         .as_str()
         .to_string();
@@ -113,7 +113,7 @@ fn parse_typed_param(pair: Pair<Rule>) -> Param {
 pub fn parse_impl(pair: Pair<Rule>) -> ImplBlock {
     let mut inner = pair.into_inner();
     let target = inner
-        .next()
+        .find(|p| p.as_rule() == Rule::ident)
         .expect("impl block needs target")
         .as_str()
         .to_string();
